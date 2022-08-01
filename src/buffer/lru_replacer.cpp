@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "buffer/lru_replacer.h"
+#include "common/logger.h"
 
 namespace bustub {
 
@@ -18,19 +19,55 @@ namespace bustub {
  * Create a new LRUReplacer.
  * @param num_pages the maximum number of pages the LRUReplacer will be required to store
  */
-LRUReplacer::LRUReplacer(size_t num_pages) {}
+LRUReplacer::LRUReplacer(size_t num_pages) : frame_list_{std::list<frame_id_t>()}, cap_{num_pages} {
+  for (size_t i = 0; i != num_pages; ++i) {
+    map_.emplace_back(frame_list_.end());
+  }
+}
 
 /**
  * Destroys the LRUReplacer.
  */
 LRUReplacer::~LRUReplacer() = default;
 
-auto LRUReplacer::Victim(frame_id_t *frame_id) -> bool { return false; }
+auto LRUReplacer::Victim(frame_id_t *frame_id) -> bool {
+  std::lock_guard<std::mutex> guard(mu_);
+  if (frame_list_.empty()) {
+    return false;
+  }
+  *frame_id = frame_list_.back();
+  frame_list_.pop_back();
+  map_[*frame_id] = frame_list_.end();
+  return true;
+}
 
-void LRUReplacer::Pin(frame_id_t frame_id) {}
+void LRUReplacer::Pin(frame_id_t frame_id) {
+  std::lock_guard<std::mutex> guard(mu_);
+  std::list<frame_id_t>::iterator it = map_[frame_id];
+  // already pined
+  if (it == frame_list_.end()) {
+    return;
+  };
+  map_[frame_id] = frame_list_.end();
+  frame_list_.erase(it);
+}
 
-void LRUReplacer::Unpin(frame_id_t frame_id) {}
+void LRUReplacer::Unpin(frame_id_t frame_id) {
+  std::lock_guard<std::mutex> guard(mu_);
+  if (frame_list_.size() >= cap_) {
+    LOG_ERROR("replacer is already full");
+  }
+  if (std::list<frame_id_t>::iterator it = map_[frame_id]; it != frame_list_.end()) {
+    LOG_WARN("Unpin frame %d already in LRUReplacer", frame_id);
+    return;
+  };
+  frame_list_.emplace_front(frame_id);
+  map_[frame_id] = frame_list_.begin();
+}
 
-auto LRUReplacer::Size() -> size_t { return 0; }
+auto LRUReplacer::Size() -> size_t {
+  std::lock_guard<std::mutex> guard(mu_);
+  return frame_list_.size();
+}
 
 }  // namespace bustub
