@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "common/exception.h"
+#include "common/logger.h"
 
 namespace bustub {
 
@@ -35,7 +36,7 @@ class Matrix {
    * @param cols The number of columns
    *
    */
-  Matrix(int rows, int cols) : rows_{rows}, cols_{cols} { linear_ = new T[rows * cols]; }
+  Matrix(int rows, int cols) : rows_{rows}, cols_{cols}, linear_{new T[rows * cols]} {}
 
   /** The number of rows in the matrix */
   int rows_;
@@ -113,21 +114,23 @@ class RowMatrix : public Matrix<T> {
    * @param cols The number of columns
    */
   RowMatrix(int rows, int cols) : Matrix<T>(rows, cols) {
-    data_ = new T[rows];
-    for (int i = 0; i < rows; ++i)) {data_[i] = linear_ + i*cols;}
+    data_ = new T *[rows];
+    for (int i = 0; i < rows; ++i) {
+      data_[i] = this->linear_ + i * cols;
+    }
   }
 
   /**
    * TODO(P0): Add implementation
    * @return The number of rows in the matrix
    */
-  auto GetRowCount() const -> int override { return rows_; }
+  auto GetRowCount() const -> int override { return this->rows_; }
 
   /**
    * TODO(P0): Add implementation
    * @return The number of columns in the matrix
    */
-  auto GetColumnCount() const -> int override { return cols_; }
+  auto GetColumnCount() const -> int override { return this->cols_; }
 
   /**
    * TODO(P0): Add implementation
@@ -142,10 +145,13 @@ class RowMatrix : public Matrix<T> {
    * @throws OUT_OF_RANGE if either index is out of range
    */
   auto GetElement(int i, int j) const -> T override {
-    if (i > rows_) || (j > cols_) {
-        throw OUT_OF_RANGE;
-      }
-    return data_[i - 1][j - 1]
+    if ((i < 0) || (i >= this->rows_)) {
+      throw Exception(ExceptionType::OUT_OF_RANGE, "SetElement i out of range");
+    }
+    if ((j < 0) || (j >= this->cols_)) {
+      throw Exception(ExceptionType::OUT_OF_RANGE, "SetElement j out of range");
+    }
+    return data_[i][j];
   }
 
   /**
@@ -159,10 +165,13 @@ class RowMatrix : public Matrix<T> {
    * @throws OUT_OF_RANGE if either index is out of range
    */
   void SetElement(int i, int j, T val) override {
-    if (i > rows_) || (j > cols_) {
-        throw OUT_OF_RANGE;
-      }
-    data_[i - 1][j - 1] = val;
+    if ((i < 0) || (i >= this->rows_)) {
+      throw Exception(ExceptionType::OUT_OF_RANGE, "SetElement i out of range");
+    }
+    if ((j < 0) || (j >= this->cols_)) {
+      throw Exception(ExceptionType::OUT_OF_RANGE, "SetElement j out of range");
+    }
+    data_[i][j] = val;
   }
 
   /**
@@ -177,10 +186,12 @@ class RowMatrix : public Matrix<T> {
    * @throws OUT_OF_RANGE if `source` is incorrect size
    */
   void FillFrom(const std::vector<T> &source) override {
-    if source
-      .size() != rows_ *cols_ { throw OUT_OF_RANGE; }
-    for (i = 0; i != source.size(); ++i) {
-      linear_[i] = source[i];
+    int s = source.size();
+    if (s != this->rows_ * this->cols_) {
+      throw Exception(ExceptionType::OUT_OF_RANGE, "FillFrom");
+    }
+    for (int i = 0; i != s; ++i) {
+      this->linear_[i] = source[i];
     }
   }
 
@@ -223,14 +234,14 @@ class RowMatrixOperations {
     if ((rows != matrixB->GetRowCount()) || (cols != matrixB->GetColumnCount())) {
       return std::unique_ptr<RowMatrix<T>>(nullptr);
     }
-    RowMatrix<T> *res = RowMatrix<T>(rows, cols);
+    RowMatrix<T> res = RowMatrix<T>(rows, cols);
     for (int i = 0; i < rows; ++i) {
       for (int j = 0; j < cols; ++j) {
         T v = matrixA->GetElement(i, j) + matrixB->GetElement(i, j);
-        res->SetElement(i, j, v);
+        res.SetElement(i, j, v);
       }
     }
-    return std::unique_ptr<RowMatrix<T>>(res)
+    return std::unique_ptr<RowMatrix<T>>(&res);
   }
 
   /**
@@ -247,17 +258,17 @@ class RowMatrixOperations {
     }
     int m = matrixA->GetRowCount();
     int n = matrixB->GetColumnCount();
-    RowMatrix<T> *res = RowMatrix<T>(m, n);
+    RowMatrix<T> res = RowMatrix<T>(m, n);
     for (int i = 0; i < m; ++i) {
       for (int j = 0; j < n; ++j) {
         T v;
         for (int k = 0; k < p; ++k) {
           v += matrixA->GetElement(i, k) * matrixB->GetElement(k, j);
         }
-        res->SetElement(i, j, v);
+        res.SetElement(i, j, v);
       }
     }
-    return std::unique_ptr<RowMatrix<T>>(res);
+    return std::unique_ptr<RowMatrix<T>>(&res);
   }
 
   /**
