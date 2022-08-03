@@ -234,14 +234,14 @@ class RowMatrixOperations {
     if ((rows != matrixB->GetRowCount()) || (cols != matrixB->GetColumnCount())) {
       return std::unique_ptr<RowMatrix<T>>(nullptr);
     }
-    RowMatrix<T> res = RowMatrix<T>(rows, cols);
+    auto res = std::make_unique<RowMatrix<T>>(rows, cols);
     for (int i = 0; i < rows; ++i) {
       for (int j = 0; j < cols; ++j) {
         T v = matrixA->GetElement(i, j) + matrixB->GetElement(i, j);
-        res.SetElement(i, j, v);
+        res->SetElement(i, j, v);
       }
     }
-    return std::unique_ptr<RowMatrix<T>>(&res);
+    return res;
   }
 
   /**
@@ -258,17 +258,17 @@ class RowMatrixOperations {
     }
     int m = matrixA->GetRowCount();
     int n = matrixB->GetColumnCount();
-    RowMatrix<T> res = RowMatrix<T>(m, n);
+    auto res = std::make_unique<RowMatrix<T>>(m, n);
     for (int i = 0; i < m; ++i) {
       for (int j = 0; j < n; ++j) {
-        T v;
+        T v = T();
         for (int k = 0; k < p; ++k) {
           v += matrixA->GetElement(i, k) * matrixB->GetElement(k, j);
         }
-        res.SetElement(i, j, v);
+        res->SetElement(i, j, v);
       }
     }
-    return std::unique_ptr<RowMatrix<T>>(&res);
+    return res;
   }
 
   /**

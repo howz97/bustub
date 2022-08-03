@@ -142,7 +142,6 @@ TEST(StarterTest, AdditionTest) {
 
   // Perform the addition operation
   auto sum = RowMatrixOperations<int>::Add(matrix0.get(), matrix1.get());
-
   // Result of addition should have same dimensions as inputs
   EXPECT_EQ(3, sum->GetRowCount());
   EXPECT_EQ(3, sum->GetColumnCount());
