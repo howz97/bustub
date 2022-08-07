@@ -49,7 +49,14 @@ BufferPoolManagerInstance::~BufferPoolManagerInstance() {
 
 auto BufferPoolManagerInstance::FlushPgImp(page_id_t page_id) -> bool {
   // Make sure you call DiskManager::WritePage!
-  return false;
+  auto it = page_table_.find(page_id);
+  if (it == page_table_.end()) {
+    return false;
+  }
+  frame_id_t frame_id = it->second;
+  Page *page = &pages_[frame_id];
+  disk_manager_->WritePage(page_id, page->GetData());
+  return true;
 }
 
 void BufferPoolManagerInstance::FlushAllPgsImp() {
@@ -65,15 +72,48 @@ auto BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) -> Page * {
   return nullptr;
 }
 
+// 1.     Search the page table for the requested page (P).
+// 1.1    If P exists, pin it and return it immediately.
+// 1.2    If P does not exist, find a replacement page (R) from either the free list or the replacer.
+//        Note that pages are always found from the free list first.
+// 2.     If R is dirty, write it back to the disk.
+// 3.     Delete R from the page table and insert P.
+// 4.     Update P's metadata, read in the page content from disk, and then return a pointer to P.
 auto BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) -> Page * {
-  // 1.     Search the page table for the requested page (P).
-  // 1.1    If P exists, pin it and return it immediately.
-  // 1.2    If P does not exist, find a replacement page (R) from either the free list or the replacer.
-  //        Note that pages are always found from the free list first.
-  // 2.     If R is dirty, write it back to the disk.
-  // 3.     Delete R from the page table and insert P.
-  // 4.     Update P's metadata, read in the page content from disk, and then return a pointer to P.
-  return nullptr;
+  if (auto it = page_table_.find(page_id); it != page_table_.end()) {
+    // hint buffer pool
+    auto frame_id = it->second;
+    Page *page = &pages_[frame_id];
+    if (page->GetPinCount() == 0) {
+      replacer_->Pin(frame_id);
+    }
+    page->pin_count_ += 1;
+    return page;
+  }
+  frame_id_t frame_id;
+  if (!free_list_.empty()) {
+    // get empty frame from free_list_
+    frame_id = free_list_.front();
+    free_list_.pop_front();
+  } else if (replacer_->Victim(&frame_id)) {
+    // victim a least recently used page
+    Page *victimed = &pages_[frame_id];
+    if (victimed->IsDirty()) {
+      disk_manager_->WritePage(victimed->GetPageId(), victimed->GetData());
+    }
+    page_table_.erase(victimed->GetPageId());
+    victimed->ResetMemory();
+    victimed->page_id_ = INVALID_PAGE_ID;
+  } else {
+    // failed to get page
+    return nullptr;
+  }
+  page_table_[page_id] = frame_id;
+  Page *page = &pages_[frame_id];
+  page->page_id_ = page_id;
+  disk_manager_->ReadPage(page_id, page->GetData());
+  page->pin_count_ = 1;
+  return page;
 }
 
 auto BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) -> bool {
@@ -85,7 +125,16 @@ auto BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) -> bool {
   return false;
 }
 
-auto BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) -> bool { return false; }
+auto BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) -> bool {
+  frame_id_t frame_id = page_table_.find(page_id)->second;
+  Page *page = &pages_[frame_id];
+  page->is_dirty_ = is_dirty;
+  page->pin_count_ -= 1;
+  if (page->GetPinCount() == 0) {
+    replacer_->Unpin(frame_id);
+  }
+  return true;
+}
 
 auto BufferPoolManagerInstance::AllocatePage() -> page_id_t {
   const page_id_t next_page_id = next_page_id_;
