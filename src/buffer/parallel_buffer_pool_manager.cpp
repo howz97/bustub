@@ -11,12 +11,16 @@
 //===----------------------------------------------------------------------===//
 
 #include "buffer/parallel_buffer_pool_manager.h"
+#include "buffer/buffer_pool_manager_instance.h"
 
 namespace bustub {
 
+// Allocate and create individual BufferPoolManagerInstances
 ParallelBufferPoolManager::ParallelBufferPoolManager(size_t num_instances, size_t pool_size, DiskManager *disk_manager,
                                                      LogManager *log_manager) {
-  // Allocate and create individual BufferPoolManagerInstances
+  for (size_t i = 0; i != num_instances; ++i) {
+    instances_.emplace_back(pool_size, num_instances, i, disk_manager, log_manager);
+  }
 }
 
 // Update constructor to destruct all BufferPoolManagerInstances and deallocate any associated memory

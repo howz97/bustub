@@ -48,7 +48,7 @@ BufferPoolManagerInstance::~BufferPoolManagerInstance() {
 }
 
 auto BufferPoolManagerInstance::FlushPgImp(page_id_t page_id) -> bool {
-  // Make sure you call DiskManager::WritePage!
+  std::lock_guard<std::mutex> guard(latch_);
   auto it = page_table_.find(page_id);
   if (it == page_table_.end()) {
     return false;
@@ -60,6 +60,7 @@ auto BufferPoolManagerInstance::FlushPgImp(page_id_t page_id) -> bool {
 }
 
 void BufferPoolManagerInstance::FlushAllPgsImp() {
+  std::lock_guard<std::mutex> guard(latch_);
   for (auto &it : page_table_) {
     Page *page = &pages_[it.second];
     disk_manager_->WritePage(it.first, page->GetData());
@@ -72,6 +73,7 @@ void BufferPoolManagerInstance::FlushAllPgsImp() {
 // 3.   Update P's metadata, zero out memory and add P to the page table.
 // 4.   Set the page ID output parameter. Return a pointer to P.
 auto BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) -> Page * {
+  std::lock_guard<std::mutex> guard(latch_);
   *page_id = AllocatePage();
   frame_id_t frame_id = AcquireFrame();
   if (frame_id == INVALID_FRAME_ID) {
@@ -114,6 +116,7 @@ auto BufferPoolManagerInstance::AcquireFrame() -> frame_id_t {
 // 3.     Delete R from the page table and insert P.
 // 4.     Update P's metadata, read in the page content from disk, and then return a pointer to P.
 auto BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) -> Page * {
+  std::lock_guard<std::mutex> guard(latch_);
   if (auto it = page_table_.find(page_id); it != page_table_.end()) {
     // hint buffer pool
     auto frame_id = it->second;
@@ -142,6 +145,7 @@ auto BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) -> Page * {
 // 2.   If P exists, but has a non-zero pin-count, return false. Someone is using the page.
 // 3.   Otherwise, P can be deleted. Remove P from the page table, reset its metadata and return it to the free list.
 auto BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) -> bool {
+  std::lock_guard<std::mutex> guard(latch_);
   DeallocatePage(page_id);
   auto it = page_table_.find(page_id);
   if (it == page_table_.end()) {
@@ -156,12 +160,13 @@ auto BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) -> bool {
   page->page_id_ = INVALID_PAGE_ID;
   page->ResetMemory();
   page_table_.erase(it);
-  free_list_.push_front(frame_id);
+  free_list_.emplace_back(frame_id);
   replacer_->Pin(frame_id);
   return true;
 }
 
 auto BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) -> bool {
+  std::lock_guard<std::mutex> guard(latch_);
   frame_id_t frame_id = page_table_.find(page_id)->second;
   Page *page = &pages_[frame_id];
   page->is_dirty_ = is_dirty;

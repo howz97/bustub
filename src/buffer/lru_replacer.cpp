@@ -49,10 +49,11 @@ void LRUReplacer::Unpin(frame_id_t frame_id) {
     LOG_ERROR("replacer is already full");
   }
   if (std::list<frame_id_t>::iterator *it = map_[frame_id]; it != nullptr) {
+    LOG_ERROR("Unpin frame %d already in LRUReplacer", frame_id);
     map_[frame_id] = nullptr;
     frame_list_.erase(*it);
   };
-  frame_list_.push_front(frame_id);
+  frame_list_.emplace_front(frame_id);
   map_[frame_id] = &frame_list_.begin();
 }
 
