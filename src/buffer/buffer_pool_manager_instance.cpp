@@ -60,16 +60,50 @@ auto BufferPoolManagerInstance::FlushPgImp(page_id_t page_id) -> bool {
 }
 
 void BufferPoolManagerInstance::FlushAllPgsImp() {
-  // You can do it!
+  for (auto &it : page_table_) {
+    Page *page = &pages_[it.second];
+    disk_manager_->WritePage(it.first, page->GetData());
+  }
 }
 
+// 0.   Make sure you call AllocatePage!
+// 1.   If all the pages in the buffer pool are pinned, return nullptr.
+// 2.   Pick a victim page P from either the free list or the replacer. Always pick from the free list first.
+// 3.   Update P's metadata, zero out memory and add P to the page table.
+// 4.   Set the page ID output parameter. Return a pointer to P.
 auto BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) -> Page * {
-  // 0.   Make sure you call AllocatePage!
-  // 1.   If all the pages in the buffer pool are pinned, return nullptr.
-  // 2.   Pick a victim page P from either the free list or the replacer. Always pick from the free list first.
-  // 3.   Update P's metadata, zero out memory and add P to the page table.
-  // 4.   Set the page ID output parameter. Return a pointer to P.
-  return nullptr;
+  *page_id = AllocatePage();
+  frame_id_t frame_id = AcquireFrame();
+  if (frame_id == INVALID_FRAME_ID) {
+    return nullptr;
+  }
+  page_table_[*page_id] = frame_id;
+  Page *page = &pages_[frame_id];
+  page->page_id_ = *page_id;
+  page->pin_count_ = 1;
+  return page;
+}
+
+auto BufferPoolManagerInstance::AcquireFrame() -> frame_id_t {
+  frame_id_t frame_id;
+  if (!free_list_.empty()) {
+    // get empty frame from free_list_
+    frame_id = free_list_.front();
+    free_list_.pop_front();
+  } else if (replacer_->Victim(&frame_id)) {
+    // victim a least recently used page
+    Page *victimed = &pages_[frame_id];
+    if (victimed->IsDirty()) {
+      disk_manager_->WritePage(victimed->GetPageId(), victimed->GetData());
+    }
+    page_table_.erase(victimed->GetPageId());
+    victimed->ResetMemory();
+    victimed->page_id_ = INVALID_PAGE_ID;
+  } else {
+    // failed to get page
+    frame_id = INVALID_FRAME_ID;
+  }
+  return frame_id;
 }
 
 // 1.     Search the page table for the requested page (P).
@@ -90,22 +124,8 @@ auto BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) -> Page * {
     page->pin_count_ += 1;
     return page;
   }
-  frame_id_t frame_id;
-  if (!free_list_.empty()) {
-    // get empty frame from free_list_
-    frame_id = free_list_.front();
-    free_list_.pop_front();
-  } else if (replacer_->Victim(&frame_id)) {
-    // victim a least recently used page
-    Page *victimed = &pages_[frame_id];
-    if (victimed->IsDirty()) {
-      disk_manager_->WritePage(victimed->GetPageId(), victimed->GetData());
-    }
-    page_table_.erase(victimed->GetPageId());
-    victimed->ResetMemory();
-    victimed->page_id_ = INVALID_PAGE_ID;
-  } else {
-    // failed to get page
+  frame_id_t frame_id = AcquireFrame();
+  if (frame_id == INVALID_FRAME_ID) {
     return nullptr;
   }
   page_table_[page_id] = frame_id;
@@ -116,13 +136,29 @@ auto BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) -> Page * {
   return page;
 }
 
+// 0.   Make sure you call DeallocatePage!
+// 1.   Search the page table for the requested page (P).
+// 1.   If P does not exist, return true.
+// 2.   If P exists, but has a non-zero pin-count, return false. Someone is using the page.
+// 3.   Otherwise, P can be deleted. Remove P from the page table, reset its metadata and return it to the free list.
 auto BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) -> bool {
-  // 0.   Make sure you call DeallocatePage!
-  // 1.   Search the page table for the requested page (P).
-  // 1.   If P does not exist, return true.
-  // 2.   If P exists, but has a non-zero pin-count, return false. Someone is using the page.
-  // 3.   Otherwise, P can be deleted. Remove P from the page table, reset its metadata and return it to the free list.
-  return false;
+  DeallocatePage(page_id);
+  auto it = page_table_.find(page_id);
+  if (it == page_table_.end()) {
+    return true;
+  }
+  frame_id_t frame_id = it->second;
+  Page *page = &pages_[frame_id];
+  if (page->GetPinCount() > 0) {
+    return false;
+  }
+  // TODO: should i write this page to disk ?
+  page->page_id_ = INVALID_PAGE_ID;
+  page->ResetMemory();
+  page_table_.erase(it);
+  free_list_.push_front(frame_id);
+  replacer_->Pin(frame_id);
+  return true;
 }
 
 auto BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) -> bool {
