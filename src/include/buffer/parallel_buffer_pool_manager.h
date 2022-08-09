@@ -12,6 +12,7 @@
 
 #pragma once
 
+#include <deque>
 #include "buffer/buffer_pool_manager.h"
 #include "buffer_pool_manager_instance.h"
 #include "recovery/log_manager.h"
@@ -89,7 +90,7 @@ class ParallelBufferPoolManager : public BufferPoolManager {
   void FlushAllPgsImp() override;
 
  private:
-  std::vector<BufferPoolManagerInstance> instances_;
   size_t last_index_;
+  std::deque<BufferPoolManagerInstance> instances_;
 };
 }  // namespace bustub
