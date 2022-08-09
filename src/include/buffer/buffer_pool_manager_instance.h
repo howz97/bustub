@@ -121,7 +121,7 @@ class BufferPoolManagerInstance : public BufferPoolManager {
    */
   void ValidatePageId(page_id_t page_id) const;
 
-  auto BufferPoolManagerInstance::AcquireFrame() -> frame_id_t;
+  auto AcquireFrame() -> frame_id_t;
 
   /** Number of pages in the buffer pool. */
   const size_t pool_size_;
