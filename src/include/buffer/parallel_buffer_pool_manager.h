@@ -89,8 +89,10 @@ class ParallelBufferPoolManager : public BufferPoolManager {
    */
   void FlushAllPgsImp() override;
 
+  void NextIndex();
+
  private:
-  size_t last_index_;
+  size_t next_index_;
   std::deque<BufferPoolManagerInstance> instances_;
 };
 }  // namespace bustub
