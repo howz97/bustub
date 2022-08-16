@@ -23,7 +23,10 @@ template <typename KeyType, typename ValueType, typename KeyComparator>
 auto HASH_TABLE_BUCKET_TYPE::GetValue(KeyType key, KeyComparator cmp, std::vector<ValueType> *result) -> bool {
   bool found = false;
   for (size_t i = 0; i != BUCKET_ARRAY_SIZE; ++i) {
-    if (cmp(array_[i].first, key) == 0) {
+    if (!IsOccupied(i)) {
+      break;
+    }
+    if (IsReadable(i) && cmp(array_[i].first, key) == 0) {
       result->push_back(array_[i].second);
       found = true;
     }
@@ -33,33 +36,42 @@ auto HASH_TABLE_BUCKET_TYPE::GetValue(KeyType key, KeyComparator cmp, std::vecto
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 auto HASH_TABLE_BUCKET_TYPE::Insert(KeyType key, ValueType value, KeyComparator cmp) -> bool {
-  uint32_t pos = BUCKET_ARRAY_SIZE;
+  uint32_t tombstone = BUCKET_ARRAY_SIZE;
   for (uint32_t i = 0; i != BUCKET_ARRAY_SIZE; ++i) {
-    if (IsOccupied(i)) {
-      if (cmp(array_[i].first, key) == 0 && array_[i].second == value) {
-        return false;
+    if (!IsOccupied(i)) {
+      if (tombstone == BUCKET_ARRAY_SIZE) {
+        SetOccupied(i);
+        tombstone = i;
       }
-    } else {
-      pos = i;
+      break;
+    }
+    if (!IsReadable(i)) {
+      tombstone = i;
+      continue;
+    }
+    // key-value already exist
+    if (cmp(array_[i].first, key) == 0 && array_[i].second == value) {
+      return false;
     }
   }
-  if (pos == BUCKET_ARRAY_SIZE) {
+  // bucket is full
+  if (tombstone == BUCKET_ARRAY_SIZE) {
     return false;
   }
-  array_[pos] = MappingType(key, value);
-  SetOccupied(pos);
-  SetReadable(pos);
+  array_[tombstone] = MappingType(key, value);
+  SetReadable(tombstone);
   return true;
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 auto HASH_TABLE_BUCKET_TYPE::Remove(KeyType key, ValueType value, KeyComparator cmp) -> bool {
   for (uint32_t i = 0; i != BUCKET_ARRAY_SIZE; ++i) {
-    if (IsOccupied(i)) {
-      if (cmp(array_[i].first, key) == 0 && array_[i].second == value) {
-        RemoveAt(i);
-        return true;
-      }
+    if (!IsOccupied(i)) {
+      break;
+    }
+    if (cmp(array_[i].first, key) == 0 && array_[i].second == value) {
+      RemoveAt(i);
+      return true;
     }
   }
   return false;
@@ -76,7 +88,9 @@ auto HASH_TABLE_BUCKET_TYPE::ValueAt(uint32_t bucket_idx) const -> ValueType {
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
-void HASH_TABLE_BUCKET_TYPE::RemoveAt(uint32_t bucket_idx) {}
+void HASH_TABLE_BUCKET_TYPE::RemoveAt(uint32_t bucket_idx) {
+  readable_[bucket_idx / 8] &= ~char(128 >> (bucket_idx % 8));
+}
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 auto HASH_TABLE_BUCKET_TYPE::IsOccupied(uint32_t bucket_idx) const -> bool {
@@ -100,17 +114,26 @@ void HASH_TABLE_BUCKET_TYPE::SetReadable(uint32_t bucket_idx) {
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 auto HASH_TABLE_BUCKET_TYPE::IsFull() -> bool {
-  return false;
+  return IsOccupied(BUCKET_ARRAY_SIZE - 1) && NumReadable() == BUCKET_ARRAY_SIZE - 1;
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 auto HASH_TABLE_BUCKET_TYPE::NumReadable() -> uint32_t {
-  return 0;
+  uint32_t cnt = 0;
+  for (uint32_t i = 0; i != BUCKET_ARRAY_SIZE; ++i) {
+    if (!IsOccupied(i)) {
+      break;
+    }
+    if (IsReadable(i)) {
+      ++cnt;
+    }
+  }
+  return cnt;
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 auto HASH_TABLE_BUCKET_TYPE::IsEmpty() -> bool {
-  return false;
+  return NumReadable() == 0;
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator>

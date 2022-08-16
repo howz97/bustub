@@ -126,6 +126,7 @@ auto HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
     buffer_pool_manager_->UnpinPage(dir_page->GetPageId(), false);
     return false;
   }
+  // fixme: how to handle duplicated insert ?
   if (bkt_page->Insert(key, value, comparator_)) {
     buffer_pool_manager_->UnpinPage(dir_page->GetPageId(), false);
     buffer_pool_manager_->UnpinPage(bkt_page->GetPageId(), true);
@@ -133,15 +134,18 @@ auto HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
   }
 
   // failed to insert directly, let's split bucket
+  // create new page
+  page_id_t new_page_id;
+  Page *new_page = buffer_pool_manager_->NewPage(&new_bkt_id);
+  if (new_page == nullptr) {
+    return false;
+  }
   uint32_t index = KeyToDirectoryIndex(key, dir_page);
   uint32_t local_dep = dir_page->GetLocalDepth(index);
   // increment global depth as needed
   if (dir_page->GetGlobalDepth() == local_dep) {
     dir_page->IncrGlobalDepth();
   }
-  // create new page
-  page_id_t new_page_id;
-  Page *new_page = buffer_pool_manager_->NewPage(&new_bkt_id);
   // change pointers of pages in directory
   uint32_t first_index = KeepLeastBits(index, local_dep);
   uint32_t end = 1 << GetGlobalDepth() - local_dep;
@@ -153,7 +157,16 @@ auto HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
     dir_page->IncrLocalDepth(bucket_idx);
   }
   // move some pairs from origin bucket to new bucket
-
+  for (uint32_t i = 0; i != BUCKET_ARRAY_SIZE; ++i) {
+    if (!IsOccupied(i)) {
+      break;
+    }
+    if (!IsReadable(i)) {
+      continue;
+    }
+    if (KeyToPageId(bkt_page->KeyAt(i), dir_page) == new_page_id) {
+    }
+  }
   // retry to insert key-value again failed just now
 
   buffer_pool_manager_->UnpinPage(dir_page->GetPageId(), true);
