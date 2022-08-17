@@ -263,6 +263,9 @@ void HASH_TABLE_TYPE::Merge(Transaction *transaction, const KeyType &key, const 
       }
     }
   }
+  if (ok && dir_page->CanShrink()) {
+    dir_page->DecrGlobalDepth();
+  }
   buffer_pool_manager_->UnpinPage(dir_page->GetPageId(), ok);
   buffer_pool_manager_->UnpinPage(bkt_page->GetPageId(), false);
 }
