@@ -142,7 +142,7 @@ class HashTableBucketPage {
   uint8_t occupied_[(BUCKET_ARRAY_SIZE - 1) / 8 + 1];
   // 0 if tombstone/brand new (never occupied), 1 otherwise.
   uint8_t readable_[(BUCKET_ARRAY_SIZE - 1) / 8 + 1];
-  // key-value pairs
+  // Flexible array member for page data.
   MappingType array_[BUCKET_ARRAY_SIZE];
 };
 
