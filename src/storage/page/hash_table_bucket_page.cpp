@@ -74,6 +74,9 @@ auto HASH_TABLE_BUCKET_TYPE::Remove(KeyType key, ValueType value, KeyComparator 
     if (!IsOccupied(i)) {
       break;
     }
+    if (!IsReadable(i)) {
+      continue;
+    }
     if (cmp(array_[i].first, key) == 0 && array_[i].second == value) {
       RemoveAt(i);
       return true;
