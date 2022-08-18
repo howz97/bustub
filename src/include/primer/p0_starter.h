@@ -96,7 +96,7 @@ class Matrix {
    * Destroy a matrix instance.
    * TODO(P0): Add implementation
    */
-  virtual ~Matrix() { delete linear_; };
+  virtual ~Matrix() { delete[] linear_; };
 };
 
 /**
@@ -116,7 +116,7 @@ class RowMatrix : public Matrix<T> {
   RowMatrix(int rows, int cols) : Matrix<T>(rows, cols) {
     data_ = new T *[rows];
     for (int i = 0; i < rows; ++i) {
-      data_[i] = this->linear_ + i * cols;
+      data_[i] = &this->linear_[i * cols];
     }
   }
 
@@ -200,7 +200,7 @@ class RowMatrix : public Matrix<T> {
    *
    * Destroy a RowMatrix instance.
    */
-  ~RowMatrix() override { delete data_; };
+  ~RowMatrix() override { delete[] data_; };
 
  private:
   /**
