@@ -139,9 +139,9 @@ class HashTableBucketPage {
 
  private:
   //  For more on BUCKET_ARRAY_SIZE see storage/page/hash_table_page_defs.h
-  char occupied_[(BUCKET_ARRAY_SIZE - 1) / 8 + 1];
+  uint8_t occupied_[(BUCKET_ARRAY_SIZE - 1) / 8 + 1];
   // 0 if tombstone/brand new (never occupied), 1 otherwise.
-  char readable_[(BUCKET_ARRAY_SIZE - 1) / 8 + 1];
+  uint8_t readable_[(BUCKET_ARRAY_SIZE - 1) / 8 + 1];
   // key-value pairs
   MappingType array_[BUCKET_ARRAY_SIZE];
 };
