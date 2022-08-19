@@ -76,7 +76,7 @@ auto BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) -> Page * {
   std::lock_guard<std::mutex> guard(latch_);
   *page_id = AllocatePage();
   frame_id_t frame_id = AcquireFrame();
-  if (frame_id == INVALID_FRAME_ID) {
+  if (frame_id == INVALID_PAGE_ID) {
     return nullptr;
   }
   page_table_[*page_id] = frame_id;
@@ -103,7 +103,7 @@ auto BufferPoolManagerInstance::AcquireFrame() -> frame_id_t {
     victimed->page_id_ = INVALID_PAGE_ID;
   } else {
     // failed to get page
-    frame_id = INVALID_FRAME_ID;
+    frame_id = INVALID_PAGE_ID;
   }
   return frame_id;
 }
@@ -128,7 +128,7 @@ auto BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) -> Page * {
     return page;
   }
   frame_id_t frame_id = AcquireFrame();
-  if (frame_id == INVALID_FRAME_ID) {
+  if (frame_id == INVALID_PAGE_ID) {
     return nullptr;
   }
   page_table_[page_id] = frame_id;
