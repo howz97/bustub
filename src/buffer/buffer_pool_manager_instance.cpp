@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "buffer/buffer_pool_manager_instance.h"
+#include "common/config.h"
 #include "common/macros.h"
 
 namespace bustub {
