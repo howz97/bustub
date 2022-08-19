@@ -18,7 +18,7 @@ namespace bustub {
 // Allocate and create individual BufferPoolManagerInstances
 ParallelBufferPoolManager::ParallelBufferPoolManager(size_t num_instances, size_t pool_size, DiskManager *disk_manager,
                                                      LogManager *log_manager)
-    : next_index_(0) {
+    : start_index_(0) {
   for (size_t i = 0; i != num_instances; ++i) {
     instances_.emplace_back(pool_size, num_instances, i, disk_manager, log_manager);
   }
@@ -60,19 +60,18 @@ auto ParallelBufferPoolManager::FlushPgImp(page_id_t page_id) -> bool {
 // 2.   Bump the starting index (mod number of instances) to start search at a different BPMI each time this function
 // is called
 auto ParallelBufferPoolManager::NewPgImp(page_id_t *page_id) -> Page * {
-  for (size_t i = 0; i != instances_.size(); ++i) {
-    BufferPoolManager *mgr = &instances_[next_index_];
+  size_t num_ins = instances_.size();
+  start_index_++;
+  start_index_ %= num_ins;
+  for (size_t i = 0; i != num_ins; ++i) {
+    BufferPoolManager *mgr = &instances_[(start_index_ + i) % num_ins];
     Page *page = mgr->NewPage(page_id);
     if (page != nullptr) {
-      NextIndex();
       return page;
     }
-    NextIndex();
   }
   return nullptr;
 }
-
-void ParallelBufferPoolManager::NextIndex() { next_index_ = (next_index_ + 1) % instances_.size(); }
 
 // Delete page_id from responsible BufferPoolManagerInstance
 auto ParallelBufferPoolManager::DeletePgImp(page_id_t page_id) -> bool {
