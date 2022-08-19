@@ -74,11 +74,11 @@ void BufferPoolManagerInstance::FlushAllPgsImp() {
 // 4.   Set the page ID output parameter. Return a pointer to P.
 auto BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) -> Page * {
   std::lock_guard<std::mutex> guard(latch_);
-  *page_id = AllocatePage();
   frame_id_t frame_id = AcquireFrame();
   if (frame_id == INVALID_PAGE_ID) {
     return nullptr;
   }
+  *page_id = AllocatePage();
   page_table_[*page_id] = frame_id;
   Page *page = &pages_[frame_id];
   page->page_id_ = *page_id;
