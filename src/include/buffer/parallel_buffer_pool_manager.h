@@ -91,6 +91,7 @@ class ParallelBufferPoolManager : public BufferPoolManager {
 
  private:
   size_t start_index_;
+  const size_t num_ins_;
   std::deque<BufferPoolManagerInstance> instances_;
 };
 }  // namespace bustub
