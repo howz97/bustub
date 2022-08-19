@@ -28,7 +28,7 @@ ParallelBufferPoolManager::ParallelBufferPoolManager(size_t num_instances, size_
 ParallelBufferPoolManager::~ParallelBufferPoolManager() = default;
 
 // Get size of all BufferPoolManagerInstances
-auto ParallelBufferPoolManager::GetPoolSize() -> size_t { return instances_.size(); }
+auto ParallelBufferPoolManager::GetPoolSize() -> size_t { return instances_.size() * instances_[0].GetPoolSize(); }
 
 // Get BufferPoolManager responsible for handling given page id. You can use this method in your other methods.
 auto ParallelBufferPoolManager::GetBufferPoolManager(page_id_t page_id) -> BufferPoolManager * {

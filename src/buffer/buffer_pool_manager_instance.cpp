@@ -101,6 +101,8 @@ auto BufferPoolManagerInstance::AcquireFrame() -> frame_id_t {
     page_table_.erase(victimed->GetPageId());
     victimed->ResetMemory();
     victimed->page_id_ = INVALID_PAGE_ID;
+    victimed->pin_count_ = 0;
+    victimed->is_dirty_ = false;
   } else {
     // failed to get page
     frame_id = INVALID_PAGE_ID;
@@ -157,8 +159,9 @@ auto BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) -> bool {
     return false;
   }
   // TODO(zhanghao): should i write this page to disk ?
-  page->page_id_ = INVALID_PAGE_ID;
   page->ResetMemory();
+  page->page_id_ = INVALID_PAGE_ID;
+  page->is_dirty_ = false;
   page_table_.erase(it);
   free_list_.emplace_back(frame_id);
   replacer_->Pin(frame_id);
