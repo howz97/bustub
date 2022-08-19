@@ -14,7 +14,7 @@
 
 #include <deque>
 #include "buffer/buffer_pool_manager.h"
-#include "buffer_pool_manager_instance.h"
+#include "buffer/buffer_pool_manager_instance.h"
 #include "recovery/log_manager.h"
 #include "storage/disk/disk_manager.h"
 #include "storage/page/page.h"
@@ -89,10 +89,9 @@ class ParallelBufferPoolManager : public BufferPoolManager {
    */
   void FlushAllPgsImp() override;
 
-  void NextIndex();
-
  private:
-  size_t next_index_;
+  std::atomic<size_t> start_index_;
+  const size_t num_ins_;
   std::deque<BufferPoolManagerInstance> instances_;
 };
 }  // namespace bustub

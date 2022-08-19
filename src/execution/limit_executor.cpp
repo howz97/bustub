@@ -23,12 +23,10 @@ namespace bustub {
  */
 LimitExecutor::LimitExecutor(ExecutorContext *exec_ctx, const LimitPlanNode *plan,
                              std::unique_ptr<AbstractExecutor> &&child_executor)
-    : AbstractExecutor(exec_ctx) {
-  UNIMPLEMENTED("TODO(P3): Add implementation.");
-}
+    : AbstractExecutor(exec_ctx), plan_(plan), child_executor_(std::move(child_executor)) {}
 
 /** Initialize the limit */
-void LimitExecutor::Init() { UNIMPLEMENTED("TODO(P3): Add implementation."); }
+void LimitExecutor::Init() { child_executor_->Init(); }
 
 /**
  * Yield the next tuple from the limit.
@@ -36,6 +34,15 @@ void LimitExecutor::Init() { UNIMPLEMENTED("TODO(P3): Add implementation."); }
  * @param[out] rid The next tuple RID produced by the limit
  * @return `true` if a tuple was produced, `false` if there are no more tuples
  */
-auto LimitExecutor::Next(Tuple *tuple, RID *rid) -> bool { UNIMPLEMENTED("TODO(P3): Add implementation."); }
+auto LimitExecutor::Next(Tuple *tuple, RID *rid) -> bool {
+  if (!child_executor_->Next(tuple, rid)) {
+    return false;
+  }
+  if (count_ >= plan_->GetLimit()) {
+    return false;
+  }
+  ++count_;
+  return true;
+}
 
 }  // namespace bustub

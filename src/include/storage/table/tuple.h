@@ -18,6 +18,7 @@
 #include "catalog/schema.h"
 #include "common/config.h"
 #include "common/rid.h"
+#include "common/util/hash_util.h"
 #include "type/value.h"
 
 namespace bustub {

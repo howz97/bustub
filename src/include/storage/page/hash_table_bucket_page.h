@@ -20,6 +20,9 @@
 #include "storage/page/hash_table_page_defs.h"
 
 namespace bustub {
+#define CODE_OK 0
+#define CODE_FULL 1
+#define CODE_DUP 2
 /**
  * Store indexed key and value together within bucket page. Supports
  * non-unique keys.
@@ -44,6 +47,13 @@ class HashTableBucketPage {
 
   auto Insert(KeyType key, ValueType value, KeyComparator cmp) -> bool;
 
+  auto Insert2(KeyType key, ValueType value, KeyComparator cmp) -> uint8_t;
+
+  /**
+   * Removes a key and value.
+   *
+   * @return true if removed, false if not found
+   */
   auto Remove(KeyType key, ValueType value, KeyComparator cmp) -> bool;
 
   auto KeyAt(uint32_t bucket_idx) const -> KeyType;

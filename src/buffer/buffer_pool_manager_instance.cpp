@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "buffer/buffer_pool_manager_instance.h"
-#include "common/logger.h"
 #include "common/macros.h"
 
 namespace bustub {
@@ -55,7 +54,10 @@ auto BufferPoolManagerInstance::FlushPgImp(page_id_t page_id) -> bool {
   }
   frame_id_t frame_id = it->second;
   Page *page = &pages_[frame_id];
-  disk_manager_->WritePage(page_id, page->GetData());
+  if (page->IsDirty()) {
+    disk_manager_->WritePage(page_id, page->GetData());
+    page->is_dirty_ = false;
+  }
   return true;
 }
 
@@ -63,7 +65,10 @@ void BufferPoolManagerInstance::FlushAllPgsImp() {
   std::lock_guard<std::mutex> guard(latch_);
   for (auto &it : page_table_) {
     Page *page = &pages_[it.second];
-    disk_manager_->WritePage(it.first, page->GetData());
+    if (page->IsDirty()) {
+      disk_manager_->WritePage(it.first, page->GetData());
+      page->is_dirty_ = false;
+    }
   }
 }
 
@@ -74,15 +79,18 @@ void BufferPoolManagerInstance::FlushAllPgsImp() {
 // 4.   Set the page ID output parameter. Return a pointer to P.
 auto BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) -> Page * {
   std::lock_guard<std::mutex> guard(latch_);
-  *page_id = AllocatePage();
   frame_id_t frame_id = AcquireFrame();
-  if (frame_id == INVALID_FRAME_ID) {
+  if (frame_id == INVALID_PAGE_ID) {
     return nullptr;
   }
+  *page_id = AllocatePage();
   page_table_[*page_id] = frame_id;
   Page *page = &pages_[frame_id];
   page->page_id_ = *page_id;
   page->pin_count_ = 1;
+  // optimize(zhanghao): why not mark dirty page and write to disk lazily ?
+  page->is_dirty_ = false;
+  disk_manager_->WritePage(*page_id, page->GetData());
   return page;
 }
 
@@ -95,16 +103,15 @@ auto BufferPoolManagerInstance::AcquireFrame() -> frame_id_t {
   } else if (replacer_->Victim(&frame_id)) {
     // victim a least recently used page
     Page *victimed = &pages_[frame_id];
+    page_table_.erase(victimed->GetPageId());
     if (victimed->IsDirty()) {
       disk_manager_->WritePage(victimed->GetPageId(), victimed->GetData());
     }
-    page_table_.erase(victimed->GetPageId());
-    victimed->ResetMemory();
-    victimed->page_id_ = INVALID_PAGE_ID;
   } else {
     // failed to get page
-    frame_id = INVALID_FRAME_ID;
+    return INVALID_PAGE_ID;
   }
+  pages_[frame_id].ResetMemory();
   return frame_id;
 }
 
@@ -127,15 +134,17 @@ auto BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) -> Page * {
     page->pin_count_ += 1;
     return page;
   }
+  // fetch from disk
   frame_id_t frame_id = AcquireFrame();
-  if (frame_id == INVALID_FRAME_ID) {
+  if (frame_id == INVALID_PAGE_ID) {
     return nullptr;
   }
   page_table_[page_id] = frame_id;
   Page *page = &pages_[frame_id];
   page->page_id_ = page_id;
-  disk_manager_->ReadPage(page_id, page->GetData());
   page->pin_count_ = 1;
+  page->is_dirty_ = false;
+  disk_manager_->ReadPage(page_id, page->GetData());
   return page;
 }
 
@@ -156,21 +165,20 @@ auto BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) -> bool {
   if (page->GetPinCount() > 0) {
     return false;
   }
-  // TODO: should i write this page to disk ?
-  page->page_id_ = INVALID_PAGE_ID;
-  page->ResetMemory();
   page_table_.erase(it);
-  free_list_.emplace_back(frame_id);
+  free_list_.push_back(frame_id);
+  // remove from replacer
   replacer_->Pin(frame_id);
   return true;
 }
 
 auto BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) -> bool {
-  LOG_DEBUG("BufferPoolManagerInstance::UnpinPgImp(%d, %d)", page_id, is_dirty);
   std::lock_guard<std::mutex> guard(latch_);
   frame_id_t frame_id = page_table_.find(page_id)->second;
   Page *page = &pages_[frame_id];
-  page->is_dirty_ = is_dirty;
+  if (is_dirty) {
+    page->is_dirty_ = true;
+  }
   page->pin_count_ -= 1;
   if (page->GetPinCount() == 0) {
     replacer_->Unpin(frame_id);

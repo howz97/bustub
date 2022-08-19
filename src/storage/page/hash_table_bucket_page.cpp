@@ -29,7 +29,6 @@ auto HASH_TABLE_BUCKET_TYPE::GetValue(KeyType key, KeyComparator cmp, std::vecto
   bool found = false;
   for (size_t i = 0; i != BUCKET_ARRAY_SIZE; ++i) {
     if (!IsOccupied(i)) {
-      LOG_DEBUG("HASH_TABLE_BUCKET_TYPE::GetValue not found until %u", unsigned(i));
       break;
     }
     if (IsReadable(i) && cmp(array_[i].first, key) == 0) {
@@ -50,6 +49,11 @@ auto HASH_TABLE_BUCKET_TYPE::GetValue(KeyType key, KeyComparator cmp, std::vecto
  */
 template <typename KeyType, typename ValueType, typename KeyComparator>
 auto HASH_TABLE_BUCKET_TYPE::Insert(KeyType key, ValueType value, KeyComparator cmp) -> bool {
+  return Insert2(key, value, cmp) == CODE_OK;
+}
+
+template <typename KeyType, typename ValueType, typename KeyComparator>
+auto HASH_TABLE_BUCKET_TYPE::Insert2(KeyType key, ValueType value, KeyComparator cmp) -> uint8_t {
   uint32_t tombstone = BUCKET_ARRAY_SIZE;
   for (uint32_t i = 0; i != BUCKET_ARRAY_SIZE; ++i) {
     if (!IsOccupied(i)) {
@@ -66,19 +70,17 @@ auto HASH_TABLE_BUCKET_TYPE::Insert(KeyType key, ValueType value, KeyComparator 
     // key-value already exist
     if (cmp(array_[i].first, key) == 0 && array_[i].second == value) {
       LOG_ERROR("HASH_TABLE_BUCKET_TYPE::Insert duplicated key-value");
-      return false;
+      return CODE_DUP;
     }
   }
   // bucket is full
   if (tombstone == BUCKET_ARRAY_SIZE) {
-    LOG_WARN("HASH_TABLE_BUCKET_TYPE::Insert bucket is full");
-    return false;
+    // LOG_DEBUG("HASH_TABLE_BUCKET_TYPE::Insert bucket is full");
+    return CODE_FULL;
   }
   array_[tombstone] = MappingType(key, value);
   SetReadable(tombstone);
-  LOG_DEBUG("HASH_TABLE_BUCKET_TYPE::Insert at %d", tombstone);
-  PrintBucket();
-  return true;
+  return CODE_OK;
 }
 
 /**
@@ -130,7 +132,7 @@ auto HASH_TABLE_BUCKET_TYPE::ValueAt(uint32_t bucket_idx) const -> ValueType {
  */
 template <typename KeyType, typename ValueType, typename KeyComparator>
 void HASH_TABLE_BUCKET_TYPE::RemoveAt(uint32_t bucket_idx) {
-  readable_[bucket_idx / 8] &= ~uint8_t(128 >> (bucket_idx % 8));
+  readable_[bucket_idx / 8] &= ~static_cast<uint8_t>(128 >> (bucket_idx % 8));
 }
 
 /**
@@ -141,7 +143,7 @@ void HASH_TABLE_BUCKET_TYPE::RemoveAt(uint32_t bucket_idx) {
  */
 template <typename KeyType, typename ValueType, typename KeyComparator>
 auto HASH_TABLE_BUCKET_TYPE::IsOccupied(uint32_t bucket_idx) const -> bool {
-  return (occupied_[bucket_idx / 8] & uint8_t(128 >> (bucket_idx % 8))) > 0;
+  return (occupied_[bucket_idx / 8] & static_cast<uint8_t>(128 >> (bucket_idx % 8))) > 0;
 }
 
 /**
@@ -152,7 +154,7 @@ auto HASH_TABLE_BUCKET_TYPE::IsOccupied(uint32_t bucket_idx) const -> bool {
  */
 template <typename KeyType, typename ValueType, typename KeyComparator>
 void HASH_TABLE_BUCKET_TYPE::SetOccupied(uint32_t bucket_idx) {
-  occupied_[bucket_idx / 8] |= uint8_t(128 >> (bucket_idx % 8));
+  occupied_[bucket_idx / 8] |= static_cast<uint8_t>(128 >> (bucket_idx % 8));
 }
 
 /**
@@ -163,7 +165,7 @@ void HASH_TABLE_BUCKET_TYPE::SetOccupied(uint32_t bucket_idx) {
  */
 template <typename KeyType, typename ValueType, typename KeyComparator>
 auto HASH_TABLE_BUCKET_TYPE::IsReadable(uint32_t bucket_idx) const -> bool {
-  return (readable_[bucket_idx / 8] & uint8_t(128 >> (bucket_idx % 8))) > 0;
+  return (readable_[bucket_idx / 8] & static_cast<uint8_t>(128 >> (bucket_idx % 8))) > 0;
 }
 
 /**
@@ -174,7 +176,7 @@ auto HASH_TABLE_BUCKET_TYPE::IsReadable(uint32_t bucket_idx) const -> bool {
  */
 template <typename KeyType, typename ValueType, typename KeyComparator>
 void HASH_TABLE_BUCKET_TYPE::SetReadable(uint32_t bucket_idx) {
-  readable_[bucket_idx / 8] |= uint8_t(128 >> (bucket_idx % 8));
+  readable_[bucket_idx / 8] |= static_cast<uint8_t>(128 >> (bucket_idx % 8));
 }
 
 /**
@@ -182,7 +184,7 @@ void HASH_TABLE_BUCKET_TYPE::SetReadable(uint32_t bucket_idx) {
  */
 template <typename KeyType, typename ValueType, typename KeyComparator>
 auto HASH_TABLE_BUCKET_TYPE::IsFull() -> bool {
-  return IsOccupied(BUCKET_ARRAY_SIZE - 1) && NumReadable() == BUCKET_ARRAY_SIZE - 1;
+  return IsOccupied(BUCKET_ARRAY_SIZE - 1) && NumReadable() == BUCKET_ARRAY_SIZE;
 }
 
 /**

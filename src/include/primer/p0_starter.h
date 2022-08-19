@@ -96,7 +96,7 @@ class Matrix {
    * Destroy a matrix instance.
    * TODO(P0): Add implementation
    */
-  virtual ~Matrix() { delete[] linear_; };
+  virtual ~Matrix() { delete[] linear_; }
 };
 
 /**
@@ -285,7 +285,7 @@ class RowMatrixOperations {
     if (tmp == nullptr) {
       return std::unique_ptr<RowMatrix<T>>(nullptr);
     }
-    return Add(tmp, matrixC);
+    return Add(tmp.get(), matrixC);
   }
 };
 }  // namespace bustub

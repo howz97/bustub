@@ -25,12 +25,10 @@ namespace bustub {
  */
 DeleteExecutor::DeleteExecutor(ExecutorContext *exec_ctx, const DeletePlanNode *plan,
                                std::unique_ptr<AbstractExecutor> &&child_executor)
-    : AbstractExecutor(exec_ctx) {
-  UNIMPLEMENTED("TODO(P3): Add implementation.");
-}
+    : AbstractExecutor(exec_ctx), plan_(plan), child_executor_(std::move(child_executor)) {}
 
 /** Initialize the delete */
-void DeleteExecutor::Init() { UNIMPLEMENTED("TODO(P3): Add implementation."); }
+void DeleteExecutor::Init() { child_executor_->Init(); }
 
 /**
  * Yield the number of rows deleted from the table.
@@ -42,7 +40,21 @@ void DeleteExecutor::Init() { UNIMPLEMENTED("TODO(P3): Add implementation."); }
  * NOTE: DeleteExecutor::Next() returns true with the number of deleted rows produced only once.
  */
 auto DeleteExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
-  UNIMPLEMENTED("TODO(P3): Add implementation.");
+  Tuple tp;
+  RID r;
+  if (!child_executor_->Next(&tp, &r)) {
+    return false;
+  }
+  TableInfo *table_info = exec_ctx_->GetCatalog()->GetTable(plan_->TableOid());
+  if (!table_info->table_->MarkDelete(r, exec_ctx_->GetTransaction())) {
+    return false;
+  }
+  for (IndexInfo *index : exec_ctx_->GetCatalog()->GetTableIndexes(table_info->name_)) {
+    IndexMetadata *meta = index->index_->GetMetadata();
+    Tuple key = tp.KeyFromTuple(table_info->schema_, *meta->GetKeySchema(), meta->GetKeyAttrs());
+    index->index_->DeleteEntry(key, r, exec_ctx_->GetTransaction());
+  }
+  return true;
 }
 
 }  // namespace bustub

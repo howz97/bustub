@@ -13,13 +13,16 @@
 #pragma once
 
 #include <memory>
+#include <unordered_map>
+#include <utility>
 
 #include "execution/executor_context.h"
 #include "execution/executors/abstract_executor.h"
+#include "execution/expressions/abstract_expression.h"
+#include "execution/plans/aggregation_plan.h"
 #include "execution/plans/hash_join_plan.h"
-#include "storage/table/tuple.h"
-
 namespace bustub {
+using ummap = std::unordered_multimap<AggregateKey, bustub::Tuple>;
 
 /**
  * HashJoinExecutor executes a nested-loop JOIN on two tables.
@@ -39,6 +42,10 @@ class HashJoinExecutor : public AbstractExecutor {
  private:
   /** The HashJoin plan node to be executed. */
   const HashJoinPlanNode *plan_;
+  std::unique_ptr<AbstractExecutor> left_child_;
+  std::unique_ptr<AbstractExecutor> right_child_;
+  ummap map_;
+  std::pair<ummap::iterator, ummap::iterator> range_;
+  Tuple left_tuple_;
 };
-
 }  // namespace bustub

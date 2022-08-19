@@ -79,5 +79,4 @@ class HashJoinPlanNode : public AbstractPlanNode {
  protected:
   auto PlanNodeToString() const -> std::string override;
 };
-
 }  // namespace bustub
