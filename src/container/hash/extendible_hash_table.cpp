@@ -27,7 +27,7 @@ HASH_TABLE_TYPE::ExtendibleHashTable(const std::string &name, BufferPoolManager 
                                      const KeyComparator &comparator, HashFunction<KeyType> hash_fn)
     : buffer_pool_manager_(buffer_pool_manager), comparator_(comparator), hash_fn_(std::move(hash_fn)) {
   Page *pg = buffer_pool_manager_->NewPage(&directory_page_id_);
-  HashTableDirectoryPage *dir_p = reinterpret_cast<HashTableDirectoryPage *>(pg->GetData());
+  auto *dir_p = reinterpret_cast<HashTableDirectoryPage *>(pg->GetData());
   dir_p->SetPageId(directory_page_id_);
   buffer_pool_manager_->UnpinPage(directory_page_id_, false);
 }
@@ -65,7 +65,7 @@ auto HASH_TABLE_TYPE::FetchDirectoryPage() -> HashTableDirectoryPage * {
     LOG_WARN("HASH_TABLE_TYPE::FetchDirectoryPage failed to FetchPage(%d)", directory_page_id_);
     return nullptr;
   }
-  HashTableDirectoryPage *dir_p = reinterpret_cast<HashTableDirectoryPage *>(page->GetData());
+  auto *dir_p = reinterpret_cast<HashTableDirectoryPage *>(page->GetData());
   return dir_p;
 }
 
@@ -75,7 +75,7 @@ auto HASH_TABLE_TYPE::FetchBucketPage(page_id_t bucket_page_id) -> HASH_TABLE_BU
   if (page == nullptr) {
     return nullptr;
   }
-  HASH_TABLE_BUCKET_TYPE *bkt_p = reinterpret_cast<HASH_TABLE_BUCKET_TYPE *>(page->GetData());
+  auto *bkt_p = reinterpret_cast<HASH_TABLE_BUCKET_TYPE *>(page->GetData());
   return bkt_p;
 }
 
@@ -128,7 +128,7 @@ auto HASH_TABLE_TYPE::GetValue(Transaction *transaction, const KeyType &key, std
   raw_page->RLatch();
   table_latch_.RUnlock();                                      // release lock of directory table
   buffer_pool_manager_->UnpinPage(directory_page_id_, false);  // unpin directory page
-  HASH_TABLE_BUCKET_TYPE *bkt_page = reinterpret_cast<HASH_TABLE_BUCKET_TYPE *>(raw_page->GetData());
+  auto *bkt_page = reinterpret_cast<HASH_TABLE_BUCKET_TYPE *>(raw_page->GetData());
   bool found = bkt_page->GetValue(key, comparator_, result);
   raw_page->RUnlatch();
   buffer_pool_manager_->UnpinPage(raw_page->GetPageId(), false);
@@ -156,7 +156,7 @@ auto HASH_TABLE_TYPE::Insert(Transaction *transaction, const KeyType &key, const
   raw_page->WLatch();
   table_latch_.RUnlock();                                      // release lock of directory table
   buffer_pool_manager_->UnpinPage(directory_page_id_, false);  // unpin directory page
-  HASH_TABLE_BUCKET_TYPE *bkt_page = reinterpret_cast<HASH_TABLE_BUCKET_TYPE *>(raw_page->GetData());
+  auto *bkt_page = reinterpret_cast<HASH_TABLE_BUCKET_TYPE *>(raw_page->GetData());
   bool ok = bkt_page->Insert(key, value, comparator_);
   raw_page->WUnlatch();
   buffer_pool_manager_->UnpinPage(raw_page->GetPageId(), ok);
@@ -177,7 +177,7 @@ auto HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
     return false;
   }
   raw_page->WLatch();
-  HASH_TABLE_BUCKET_TYPE *bkt_page = reinterpret_cast<HASH_TABLE_BUCKET_TYPE *>(raw_page->GetData());
+  auto *bkt_page = reinterpret_cast<HASH_TABLE_BUCKET_TYPE *>(raw_page->GetData());
   // fixme: how to handle duplicated insert ?
   if (bkt_page->Insert(key, value, comparator_)) {
     table_latch_.WUnlock();
@@ -198,7 +198,7 @@ auto HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
     buffer_pool_manager_->UnpinPage(raw_page->GetPageId(), false);
     return false;
   }
-  HASH_TABLE_BUCKET_TYPE *new_bkt = reinterpret_cast<HASH_TABLE_BUCKET_TYPE *>(new_page->GetData());
+  auto *new_bkt = reinterpret_cast<HASH_TABLE_BUCKET_TYPE *>(new_page->GetData());
   uint32_t index = KeyToDirectoryIndex(key, dir_page);
   uint32_t local_dep = dir_page->GetLocalDepth(index);
   // increment global depth as needed
@@ -259,7 +259,7 @@ auto HASH_TABLE_TYPE::Remove(Transaction *transaction, const KeyType &key, const
   raw_page->WLatch();
   table_latch_.RUnlock();                                      // release lock of directory table
   buffer_pool_manager_->UnpinPage(directory_page_id_, false);  // unpin directory page
-  HASH_TABLE_BUCKET_TYPE *bkt_page = reinterpret_cast<HASH_TABLE_BUCKET_TYPE *>(raw_page->GetData());
+  auto *bkt_page = reinterpret_cast<HASH_TABLE_BUCKET_TYPE *>(raw_page->GetData());
   bool ok = bkt_page->Remove(key, value, comparator_);
   bool empty = bkt_page->IsEmpty();
   raw_page->WUnlatch();
@@ -288,7 +288,7 @@ void HASH_TABLE_TYPE::Merge(Transaction *transaction, const KeyType &key, const 
     return;
   }
   raw_page->WLatch();
-  HASH_TABLE_BUCKET_TYPE *bkt_page = reinterpret_cast<HASH_TABLE_BUCKET_TYPE *>(raw_page->GetData());
+  auto *bkt_page = reinterpret_cast<HASH_TABLE_BUCKET_TYPE *>(raw_page->GetData());
   bool ok = false;
   if (bkt_page->IsEmpty()) {
     uint32_t index = KeyToDirectoryIndex(key, dir_page);

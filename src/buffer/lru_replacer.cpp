@@ -36,7 +36,7 @@ auto LRUReplacer::Victim(frame_id_t *frame_id) -> bool {
 
 void LRUReplacer::Pin(frame_id_t frame_id) {
   std::lock_guard<std::mutex> guard(mu_);
-  std::list<frame_id_t>::iterator it = map_[frame_id];
+  auto it = map_[frame_id];
   // already pined
   if (it == frame_list_.end()) {
     return;
@@ -50,7 +50,7 @@ void LRUReplacer::Unpin(frame_id_t frame_id) {
   if (frame_list_.size() >= cap_) {
     LOG_ERROR("replacer is already full");
   }
-  if (std::list<frame_id_t>::iterator it = map_[frame_id]; it != frame_list_.end()) {
+  if (auto it = map_[frame_id]; it != frame_list_.end()) {
     LOG_WARN("Unpin frame %d already in LRUReplacer", frame_id);
     return;
   }
