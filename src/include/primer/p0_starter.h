@@ -285,7 +285,7 @@ class RowMatrixOperations {
     if (tmp == nullptr) {
       return std::unique_ptr<RowMatrix<T>>(nullptr);
     }
-    return Add(tmp, matrixC);
+    return Add(tmp.get(), matrixC);
   }
 };
 }  // namespace bustub
