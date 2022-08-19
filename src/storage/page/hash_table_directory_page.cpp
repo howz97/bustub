@@ -108,7 +108,7 @@ void HashTableDirectoryPage::VerifyIntegrity() {
   for (uint32_t curr_idx = 0; curr_idx < Size(); curr_idx++) {
     page_id_t curr_page_id = bucket_page_ids_[curr_idx];
     uint32_t curr_ld = local_depths_[curr_idx];
-    assert(curr_ld <= global_depth_);
+    assert(curr_ld <= GetGlobalDepth());
 
     ++page_id_to_count[curr_page_id];
 
@@ -129,7 +129,7 @@ void HashTableDirectoryPage::VerifyIntegrity() {
     page_id_t curr_page_id = it->first;
     uint32_t curr_count = it->second;
     uint32_t curr_ld = page_id_to_ld[curr_page_id];
-    uint32_t required_count = 0x1 << (global_depth_ - curr_ld);
+    uint32_t required_count = 0x1 << (GetGlobalDepth() - curr_ld);
 
     if (curr_count != required_count) {
       LOG_WARN("Verify Integrity: curr_count: %u, required_count %u, for page_id: %u", curr_count, required_count,
@@ -142,9 +142,9 @@ void HashTableDirectoryPage::VerifyIntegrity() {
 }
 
 void HashTableDirectoryPage::PrintDirectory() {
-  LOG_DEBUG("======== DIRECTORY (global_depth_: %u) ========", global_depth_);
+  LOG_DEBUG("======== DIRECTORY (global_depth_: %u) ========", GetGlobalDepth());
   LOG_DEBUG("| bucket_idx | page_id | local_depth |");
-  for (uint32_t idx = 0; idx < static_cast<uint32_t>(0x1 << global_depth_); idx++) {
+  for (uint32_t idx = 0; idx < static_cast<uint32_t>(0x1 << GetGlobalDepth()); idx++) {
     LOG_DEBUG("|      %u     |     %u     |     %u     |", idx, bucket_page_ids_[idx], local_depths_[idx]);
   }
   LOG_DEBUG("================ END DIRECTORY ================");
