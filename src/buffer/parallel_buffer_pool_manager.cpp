@@ -61,15 +61,17 @@ auto ParallelBufferPoolManager::FlushPgImp(page_id_t page_id) -> bool {
 // is called
 auto ParallelBufferPoolManager::NewPgImp(page_id_t *page_id) -> Page * {
   size_t num_ins = instances_.size();
-  start_index_++;
-  start_index_ %= num_ins;
   for (size_t i = 0; i != num_ins; ++i) {
     BufferPoolManager *mgr = &instances_[(start_index_ + i) % num_ins];
     Page *page = mgr->NewPage(page_id);
     if (page != nullptr) {
+      start_index_++;
+      start_index_ %= num_ins;
       return page;
     }
   }
+  start_index_++;
+  start_index_ %= num_ins;
   return nullptr;
 }
 
