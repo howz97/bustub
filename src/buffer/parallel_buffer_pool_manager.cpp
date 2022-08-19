@@ -60,6 +60,9 @@ auto ParallelBufferPoolManager::FlushPgImp(page_id_t page_id) -> bool {
 // 2.   Bump the starting index (mod number of instances) to start search at a different BPMI each time this function
 // is called
 auto ParallelBufferPoolManager::NewPgImp(page_id_t *page_id) -> Page * {
+  if (num_ins_ == 0) {
+    return nullptr;
+  }
   for (size_t i = 0; i != num_ins_; ++i) {
     BufferPoolManager *mgr = &instances_[(start_index_ + i) % num_ins_];
     Page *page = mgr->NewPage(page_id);
