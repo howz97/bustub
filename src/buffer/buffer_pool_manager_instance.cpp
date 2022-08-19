@@ -169,7 +169,9 @@ auto BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) -> 
   std::lock_guard<std::mutex> guard(latch_);
   frame_id_t frame_id = page_table_.find(page_id)->second;
   Page *page = &pages_[frame_id];
-  page->is_dirty_ = is_dirty;
+  if (is_dirty) {
+    page->is_dirty_ = true;
+  }
   page->pin_count_ -= 1;
   if (page->GetPinCount() == 0) {
     replacer_->Unpin(frame_id);
