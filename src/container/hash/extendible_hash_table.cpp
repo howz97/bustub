@@ -115,7 +115,7 @@ auto HASH_TABLE_TYPE::GetValue(Transaction *transaction, const KeyType &key, std
   if (dir_page == nullptr) {
     return false;
   }
-  // TODO: consider this optimization, FetchPage -> RLock -> check page
+  // TODO(zhanghao): consider this optimization, FetchPage -> RLock -> check page
   table_latch_.RLock();
   Page *raw_page = buffer_pool_manager_->FetchPage(KeyToPageId(key, dir_page));
   if (raw_page == nullptr) {

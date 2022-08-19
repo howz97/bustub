@@ -40,7 +40,7 @@ void LRUReplacer::Pin(frame_id_t frame_id) {
   // already pined
   if (it == frame_list_.end()) {
     return;
-  };
+  }
   map_[frame_id] = frame_list_.end();
   frame_list_.erase(it);
 }
@@ -53,7 +53,7 @@ void LRUReplacer::Unpin(frame_id_t frame_id) {
   if (std::list<frame_id_t>::iterator it = map_[frame_id]; it != frame_list_.end()) {
     LOG_WARN("Unpin frame %d already in LRUReplacer", frame_id);
     return;
-  };
+  }
   frame_list_.emplace_front(frame_id);
   map_[frame_id] = frame_list_.begin();
 }

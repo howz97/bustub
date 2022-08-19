@@ -156,7 +156,7 @@ auto BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) -> bool {
   if (page->GetPinCount() > 0) {
     return false;
   }
-  // TODO: should i write this page to disk ?
+  // TODO(zhanghao): should i write this page to disk ?
   page->page_id_ = INVALID_PAGE_ID;
   page->ResetMemory();
   page_table_.erase(it);
