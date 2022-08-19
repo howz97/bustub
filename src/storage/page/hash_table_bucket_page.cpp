@@ -24,7 +24,6 @@ auto HASH_TABLE_BUCKET_TYPE::GetValue(KeyType key, KeyComparator cmp, std::vecto
   bool found = false;
   for (size_t i = 0; i != BUCKET_ARRAY_SIZE; ++i) {
     if (!IsOccupied(i)) {
-      LOG_DEBUG("HASH_TABLE_BUCKET_TYPE::GetValue not found until %u", unsigned(i));
       break;
     }
     if (IsReadable(i) && cmp(array_[i].first, key) == 0) {
@@ -52,18 +51,17 @@ auto HASH_TABLE_BUCKET_TYPE::Insert(KeyType key, ValueType value, KeyComparator 
     }
     // key-value already exist
     if (cmp(array_[i].first, key) == 0 && array_[i].second == value) {
-      LOG_ERROR("HASH_TABLE_BUCKET_TYPE::Insert duplicated key-value");
+      // LOG_ERROR("HASH_TABLE_BUCKET_TYPE::Insert duplicated key-value");
       return false;
     }
   }
   // bucket is full
   if (tombstone == BUCKET_ARRAY_SIZE) {
-    LOG_WARN("HASH_TABLE_BUCKET_TYPE::Insert bucket is full");
+    // LOG_WARN("HASH_TABLE_BUCKET_TYPE::Insert bucket is full");
     return false;
   }
   array_[tombstone] = MappingType(key, value);
   SetReadable(tombstone);
-  LOG_DEBUG("HASH_TABLE_BUCKET_TYPE::Insert at %d", tombstone);
   PrintBucket();
   return true;
 }
