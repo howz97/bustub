@@ -46,9 +46,8 @@ class LRUReplacer : public Replacer {
   auto Size() -> size_t override;
 
  private:
-  std::list<frame_id_t> frame_list_;
-  size_t cap_;
   std::mutex mu_;
+  std::list<frame_id_t> frame_list_;
   std::vector<std::list<frame_id_t>::iterator> map_;
 };
 

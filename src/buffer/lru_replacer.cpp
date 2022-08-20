@@ -14,7 +14,7 @@
 
 namespace bustub {
 
-LRUReplacer::LRUReplacer(size_t num_pages) : frame_list_{std::list<frame_id_t>()}, cap_{num_pages} {
+LRUReplacer::LRUReplacer(size_t num_pages) : frame_list_{std::list<frame_id_t>()} {
   for (size_t i = 0; i != num_pages; ++i) {
     map_.emplace_back(frame_list_.end());
   }
@@ -46,14 +46,10 @@ void LRUReplacer::Pin(frame_id_t frame_id) {
 
 void LRUReplacer::Unpin(frame_id_t frame_id) {
   std::lock_guard<std::mutex> guard(mu_);
-  if (frame_list_.size() >= cap_) {
-    // LOG_ERROR("replacer is already full");
-  }
   if (auto it = map_[frame_id]; it != frame_list_.end()) {
-    // LOG_WARN("Unpin frame %d already in LRUReplacer", frame_id);
     return;
   }
-  frame_list_.emplace_front(frame_id);
+  frame_list_.push_front(frame_id);
   map_[frame_id] = frame_list_.begin();
 }
 

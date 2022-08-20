@@ -95,18 +95,15 @@ auto BufferPoolManagerInstance::AcquireFrame() -> frame_id_t {
   } else if (replacer_->Victim(&frame_id)) {
     // victim a least recently used page
     Page *victimed = &pages_[frame_id];
+    page_table_.erase(victimed->GetPageId());
     if (victimed->IsDirty()) {
       disk_manager_->WritePage(victimed->GetPageId(), victimed->GetData());
     }
-    page_table_.erase(victimed->GetPageId());
-    victimed->ResetMemory();
-    victimed->page_id_ = INVALID_PAGE_ID;
-    victimed->pin_count_ = 0;
-    victimed->is_dirty_ = false;
   } else {
     // failed to get page
-    frame_id = INVALID_PAGE_ID;
+    return INVALID_PAGE_ID;
   }
+  pages_[frame_id].ResetMemory();
   return frame_id;
 }
 
@@ -129,6 +126,7 @@ auto BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) -> Page * {
     page->pin_count_ += 1;
     return page;
   }
+  // fetch from disk
   frame_id_t frame_id = AcquireFrame();
   if (frame_id == INVALID_PAGE_ID) {
     return nullptr;
@@ -136,8 +134,9 @@ auto BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) -> Page * {
   page_table_[page_id] = frame_id;
   Page *page = &pages_[frame_id];
   page->page_id_ = page_id;
-  disk_manager_->ReadPage(page_id, page->GetData());
   page->pin_count_ = 1;
+  page->is_dirty_ = false;
+  disk_manager_->ReadPage(page_id, page->GetData());
   return page;
 }
 
@@ -158,12 +157,9 @@ auto BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) -> bool {
   if (page->GetPinCount() > 0) {
     return false;
   }
-  // TODO(zhanghao): should i write this page to disk ?
-  page->ResetMemory();
-  page->page_id_ = INVALID_PAGE_ID;
-  page->is_dirty_ = false;
   page_table_.erase(it);
-  free_list_.emplace_back(frame_id);
+  free_list_.push_back(frame_id);
+  // remove from replacer
   replacer_->Pin(frame_id);
   return true;
 }
