@@ -88,7 +88,9 @@ auto BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) -> Page * {
   Page *page = &pages_[frame_id];
   page->page_id_ = *page_id;
   page->pin_count_ = 1;
-  page->is_dirty_ = true;
+  // optimize(zhanghao): why not mark dirty page and write to disk lazily ?
+  page->is_dirty_ = false;
+  disk_manager_->WritePage(*page_id, page->GetData());
   return page;
 }
 
