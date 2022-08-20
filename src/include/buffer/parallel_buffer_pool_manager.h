@@ -90,7 +90,7 @@ class ParallelBufferPoolManager : public BufferPoolManager {
   void FlushAllPgsImp() override;
 
  private:
-  size_t start_index_;
+  std::atomic<size_t> start_index_;
   const size_t num_ins_;
   std::deque<BufferPoolManagerInstance> instances_;
 };
