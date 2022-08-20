@@ -67,7 +67,7 @@ auto ParallelBufferPoolManager::NewPgImp(page_id_t *page_id) -> Page * {
   for (size_t i = 0; i < num_ins_; ++i) {
     BufferPoolManager *mgr = &instances_[(start + i) % num_ins_];
     Page *page = mgr->NewPage(page_id);
-    if (page != nullptr) {
+    if (page) {
       return page;
     }
   }
