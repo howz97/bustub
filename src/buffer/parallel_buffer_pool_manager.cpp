@@ -60,9 +60,7 @@ auto ParallelBufferPoolManager::FlushPgImp(page_id_t page_id) -> bool {
 // 2.   Bump the starting index (mod number of instances) to start search at a different BPMI each time this function
 // is called
 auto ParallelBufferPoolManager::NewPgImp(page_id_t *page_id) -> Page * {
-  if (num_ins_ == 0) {
-    return nullptr;
-  }
+  assert(num_ins_ > 0);
   size_t start = start_index_.fetch_add(1);
   for (size_t i = 0; i < num_ins_; ++i) {
     Page *page = instances_[(start + i) % num_ins_].NewPage(page_id);

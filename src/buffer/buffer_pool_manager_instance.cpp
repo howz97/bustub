@@ -54,7 +54,10 @@ auto BufferPoolManagerInstance::FlushPgImp(page_id_t page_id) -> bool {
   }
   frame_id_t frame_id = it->second;
   Page *page = &pages_[frame_id];
-  disk_manager_->WritePage(page_id, page->GetData());
+  if (page->IsDirty()) {
+    disk_manager_->WritePage(page_id, page->GetData());
+    page->is_dirty_ = false;
+  }
   return true;
 }
 
@@ -62,7 +65,10 @@ void BufferPoolManagerInstance::FlushAllPgsImp() {
   std::lock_guard<std::mutex> guard(latch_);
   for (auto &it : page_table_) {
     Page *page = &pages_[it.second];
-    disk_manager_->WritePage(it.first, page->GetData());
+    if (page->IsDirty()) {
+      disk_manager_->WritePage(it.first, page->GetData());
+      page->is_dirty_ = false;
+    }
   }
 }
 
