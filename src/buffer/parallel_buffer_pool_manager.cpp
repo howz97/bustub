@@ -18,7 +18,7 @@ namespace bustub {
 // Allocate and create individual BufferPoolManagerInstances
 ParallelBufferPoolManager::ParallelBufferPoolManager(size_t num_instances, size_t pool_size, DiskManager *disk_manager,
                                                      LogManager *log_manager)
-    : start_index_(num_instances - 1), num_ins_(num_instances) {
+    : start_index_(0), num_ins_(num_instances) {
   for (size_t i = 0; i < num_instances; ++i) {
     instances_.emplace_back(pool_size, num_instances, i, disk_manager, log_manager);
   }
