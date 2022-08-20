@@ -62,7 +62,6 @@ auto HASH_TABLE_BUCKET_TYPE::Insert(KeyType key, ValueType value, KeyComparator 
   }
   array_[tombstone] = MappingType(key, value);
   SetReadable(tombstone);
-  PrintBucket();
   return true;
 }
 
