@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "buffer/buffer_pool_manager_instance.h"
-#include "common/config.h"
 #include "common/macros.h"
 
 namespace bustub {
@@ -83,6 +82,7 @@ auto BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) -> Page * {
   Page *page = &pages_[frame_id];
   page->page_id_ = *page_id;
   page->pin_count_ = 1;
+  page->is_dirty_ = true;
   return page;
 }
 
