@@ -16,7 +16,6 @@
 #include <vector>
 
 #include "common/exception.h"
-#include "common/logger.h"
 #include "common/rid.h"
 #include "container/hash/extendible_hash_table.h"
 
@@ -62,7 +61,7 @@ template <typename KeyType, typename ValueType, typename KeyComparator>
 auto HASH_TABLE_TYPE::FetchDirectoryPage() -> HashTableDirectoryPage * {
   Page *page = buffer_pool_manager_->FetchPage(directory_page_id_);
   if (page == nullptr) {
-    LOG_WARN("HASH_TABLE_TYPE::FetchDirectoryPage failed to FetchPage(%d)", directory_page_id_);
+    // LOG_WARN("HASH_TABLE_TYPE::FetchDirectoryPage failed to FetchPage(%d)", directory_page_id_);
     return nullptr;
   }
   auto *dir_p = reinterpret_cast<HashTableDirectoryPage *>(page->GetData());
@@ -119,7 +118,7 @@ auto HASH_TABLE_TYPE::GetValue(Transaction *transaction, const KeyType &key, std
   table_latch_.RLock();
   Page *raw_page = buffer_pool_manager_->FetchPage(KeyToPageId(key, dir_page));
   if (raw_page == nullptr) {
-    LOG_WARN("HASH_TABLE_TYPE::GetValue failed to fetch bucket %d", KeyToPageId(key, dir_page));
+    // LOG_WARN("HASH_TABLE_TYPE::GetValue failed to fetch bucket %d", KeyToPageId(key, dir_page));
     buffer_pool_manager_->UnpinPage(directory_page_id_, false);
     table_latch_.RUnlock();
     return false;
@@ -147,7 +146,7 @@ auto HASH_TABLE_TYPE::Insert(Transaction *transaction, const KeyType &key, const
   table_latch_.RLock();
   Page *raw_page = buffer_pool_manager_->FetchPage(KeyToPageId(key, dir_page));
   if (raw_page == nullptr) {
-    LOG_WARN("HASH_TABLE_TYPE::Insert failed to FetchPage(%d)", KeyToPageId(key, dir_page));
+    // LOG_WARN("HASH_TABLE_TYPE::Insert failed to FetchPage(%d)", KeyToPageId(key, dir_page));
     buffer_pool_manager_->UnpinPage(directory_page_id_, false);
     table_latch_.RUnlock();
     return false;
