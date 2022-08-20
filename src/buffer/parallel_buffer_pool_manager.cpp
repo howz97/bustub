@@ -65,8 +65,7 @@ auto ParallelBufferPoolManager::NewPgImp(page_id_t *page_id) -> Page * {
   }
   size_t start = start_index_.fetch_add(1);
   for (size_t i = 0; i < num_ins_; ++i) {
-    BufferPoolManager *mgr = &instances_[(start + i) % num_ins_];
-    Page *page = mgr->NewPage(page_id);
+    Page *page = instances_[(start + i) % num_ins_].NewPage(page_id);
     if (page) {
       return page;
     }
