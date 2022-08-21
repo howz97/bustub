@@ -109,8 +109,6 @@ void DiskManager::ReadPage(page_id_t page_id, char *page_data) {
   if (offset > GetFileSize(file_name_)) {
     LOG_DEBUG("I/O error reading past end of file page_id=%d,offset=%d,file_size=%d", page_id, offset,
               GetFileSize(file_name_));
-    page_id_t zero = 0;
-    page_id = 1 / zero;
     // std::cerr << "I/O error while reading" << std::endl;
   } else {
     // set read cursor to offset

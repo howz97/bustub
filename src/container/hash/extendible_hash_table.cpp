@@ -120,12 +120,6 @@ auto HASH_TABLE_TYPE::GetValue(Transaction *transaction, const KeyType &key, std
   }
   // TODO(zhanghao): consider this optimization, FetchPage -> RLock -> check page
   table_latch_.RLock();
-  if (KeyToPageId(key, dir_page) == 50) {
-    std::cout << "50 found: key=" << key << " page_id=" << KeyToPageId(key, dir_page)
-              << " index=" << KeyToDirectoryIndex(key, dir_page) << " gdm=" << dir_page->GetGlobalDepthMask()
-              << std::endl;
-    dir_page->PrintDirectory();
-  }
   Page *raw_page = buffer_pool_manager_->FetchPage(KeyToPageId(key, dir_page));
   if (raw_page == nullptr) {
     // LOG_WARN("HASH_TABLE_TYPE::GetValue failed to fetch bucket %d", KeyToPageId(key, dir_page));
@@ -171,7 +165,6 @@ auto HASH_TABLE_TYPE::Insert(Transaction *transaction, const KeyType &key, const
   buffer_pool_manager_->UnpinPage(raw_page->GetPageId(), code == CODE_OK);
   if (code == CODE_FULL) {
     code = SplitInsert(transaction, key, value);
-    std::cout << "HASH_TABLE_TYPE::Insert but full key=" << key << " val=" << value << std::endl;
   }
   return code == CODE_OK;
 }

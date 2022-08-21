@@ -263,3 +263,5 @@ docs/dev
 
 # Clangd cache index
 .cache
+
+project[0-4]-submission.zip
