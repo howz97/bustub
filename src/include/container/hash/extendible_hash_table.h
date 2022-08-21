@@ -84,6 +84,8 @@ class ExtendibleHashTable {
    */
   void VerifyIntegrity();
 
+  void PrintDirectory();
+
  private:
   /**
    * Hash - simple helper to downcast MurmurHash's 64-bit hash to 32-bit
@@ -144,7 +146,7 @@ class ExtendibleHashTable {
    * @param value the value to insert
    * @return whether or not the insertion was successful
    */
-  auto SplitInsert(Transaction *transaction, const KeyType &key, const ValueType &value) -> bool;
+  auto SplitInsert(Transaction *transaction, const KeyType &key, const ValueType &value) -> uint8_t;
 
   /**
    * Optionally merges an empty bucket into it's pair.  This is called by Remove,

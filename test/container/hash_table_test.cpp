@@ -142,6 +142,10 @@ TEST(HashTableTest, ScaleTest) {
   EXPECT_FALSE(ht.Remove(nullptr, 1, 2));
   EXPECT_EQ(1, ht.GetGlobalDepth());
   ht.VerifyIntegrity();
+  for (int i = 0; i < 496; i++) {
+    EXPECT_TRUE(ht.Remove(nullptr, i, i));
+    ht.VerifyIntegrity();
+  }
   EXPECT_TRUE(ht.Remove(nullptr, 1, 100));
   EXPECT_EQ(0, ht.GetGlobalDepth());
   ht.VerifyIntegrity();

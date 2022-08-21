@@ -42,3 +42,8 @@
  * to maintain the occupied and readable flags for a key value pair.
  */
 #define BUCKET_ARRAY_SIZE (4 * PAGE_SIZE / (4 * sizeof(MappingType) + 1))
+
+#define CODE_OK 0
+#define CODE_FULL 1
+#define CODE_DUP 2
+#define CODE_BUFFER 3

@@ -55,7 +55,7 @@ class HashTableBucketPage {
    * @param value value to insert
    * @return true if inserted, false if duplicate KV pair or bucket is full
    */
-  auto Insert(KeyType key, ValueType value, KeyComparator cmp) -> bool;
+  auto Insert(KeyType key, ValueType value, KeyComparator cmp) -> uint8_t;
 
   /**
    * Removes a key and value.

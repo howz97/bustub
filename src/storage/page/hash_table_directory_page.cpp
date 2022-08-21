@@ -42,11 +42,12 @@ void HashTableDirectoryPage::IncrGlobalDepth() {
   }
   uint32_t end = global_depth_ + 1;
   global_depth_ <<= 1;
-  global_depth_ &= 1;
+  global_depth_ |= 1;
   for (uint32_t i = 0; i != end; ++i) {
     local_depths_[i | end] = local_depths_[i];
     bucket_page_ids_[i | end] = bucket_page_ids_[i];
   }
+  LOG_DEBUG("HashTableDirectoryPage::IncrGlobalDepth");
 }
 
 void HashTableDirectoryPage::DecrGlobalDepth() {

@@ -35,7 +35,7 @@ auto HASH_TABLE_BUCKET_TYPE::GetValue(KeyType key, KeyComparator cmp, std::vecto
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
-auto HASH_TABLE_BUCKET_TYPE::Insert(KeyType key, ValueType value, KeyComparator cmp) -> bool {
+auto HASH_TABLE_BUCKET_TYPE::Insert(KeyType key, ValueType value, KeyComparator cmp) -> uint8_t {
   uint32_t tombstone = BUCKET_ARRAY_SIZE;
   for (uint32_t i = 0; i != BUCKET_ARRAY_SIZE; ++i) {
     if (!IsOccupied(i)) {
@@ -51,18 +51,18 @@ auto HASH_TABLE_BUCKET_TYPE::Insert(KeyType key, ValueType value, KeyComparator 
     }
     // key-value already exist
     if (cmp(array_[i].first, key) == 0 && array_[i].second == value) {
-      // LOG_ERROR("HASH_TABLE_BUCKET_TYPE::Insert duplicated key-value");
-      return false;
+      LOG_ERROR("HASH_TABLE_BUCKET_TYPE::Insert duplicated key-value");
+      return CODE_DUP;
     }
   }
   // bucket is full
   if (tombstone == BUCKET_ARRAY_SIZE) {
-    // LOG_WARN("HASH_TABLE_BUCKET_TYPE::Insert bucket is full");
-    return false;
+    LOG_WARN("HASH_TABLE_BUCKET_TYPE::Insert bucket is full");
+    return CODE_FULL;
   }
   array_[tombstone] = MappingType(key, value);
   SetReadable(tombstone);
-  return true;
+  return CODE_OK;
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
@@ -119,7 +119,7 @@ void HASH_TABLE_BUCKET_TYPE::SetReadable(uint32_t bucket_idx) {
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 auto HASH_TABLE_BUCKET_TYPE::IsFull() -> bool {
-  return IsOccupied(BUCKET_ARRAY_SIZE - 1) && NumReadable() == BUCKET_ARRAY_SIZE - 1;
+  return IsOccupied(BUCKET_ARRAY_SIZE - 1) && NumReadable() == BUCKET_ARRAY_SIZE;
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
