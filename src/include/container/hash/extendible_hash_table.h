@@ -146,7 +146,7 @@ class ExtendibleHashTable {
    * @param value the value to insert
    * @return whether or not the insertion was successful
    */
-  auto SplitInsert(Transaction *transaction, const KeyType &key, const ValueType &value) -> uint8_t;
+  auto SplitInsert(Transaction *transaction, const KeyType &key, const ValueType &value) -> bool;
 
   /**
    * Optionally merges an empty bucket into it's pair.  This is called by Remove,

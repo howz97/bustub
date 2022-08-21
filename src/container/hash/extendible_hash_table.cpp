@@ -160,27 +160,27 @@ auto HASH_TABLE_TYPE::Insert(Transaction *transaction, const KeyType &key, const
   table_latch_.RUnlock();                                      // release lock of directory table
   buffer_pool_manager_->UnpinPage(directory_page_id_, false);  // unpin directory page
   auto *bkt_page = reinterpret_cast<HASH_TABLE_BUCKET_TYPE *>(raw_page->GetData());
-  uint8_t code = bkt_page->Insert(key, value, comparator_);
+  uint8_t code = bkt_page->Insert2(key, value, comparator_);
   raw_page->WUnlatch();
   buffer_pool_manager_->UnpinPage(raw_page->GetPageId(), code == CODE_OK);
   if (code == CODE_FULL) {
-    code = SplitInsert(transaction, key, value);
+    return SplitInsert(transaction, key, value);
   }
   return code == CODE_OK;
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
-auto HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, const ValueType &value) -> uint8_t {
+auto HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, const ValueType &value) -> bool {
   HashTableDirectoryPage *dir_page = FetchDirectoryPage();
   if (dir_page == nullptr) {
-    return CODE_BUFFER;
+    return false;
   }
   table_latch_.WLock();
   Page *raw_page = buffer_pool_manager_->FetchPage(KeyToPageId(key, dir_page));
   if (raw_page == nullptr) {
     buffer_pool_manager_->UnpinPage(directory_page_id_, false);
     table_latch_.WUnlock();
-    return CODE_BUFFER;
+    return false;
   }
   raw_page->WLatch();
   auto *bkt_page = reinterpret_cast<HASH_TABLE_BUCKET_TYPE *>(raw_page->GetData());
@@ -202,7 +202,7 @@ auto HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
     raw_page->WUnlatch();
     buffer_pool_manager_->UnpinPage(directory_page_id_, false);
     buffer_pool_manager_->UnpinPage(raw_page->GetPageId(), false);
-    return CODE_BUFFER;
+    return false;
   }
   auto *new_bkt = reinterpret_cast<HASH_TABLE_BUCKET_TYPE *>(new_page->GetData());
   uint32_t index = KeyToDirectoryIndex(key, dir_page);
@@ -227,22 +227,22 @@ auto HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
       continue;
     }
     if (KeyToPageId(bkt_page->KeyAt(i), dir_page) == new_page_id) {
-      new_bkt->Insert(bkt_page->KeyAt(i), bkt_page->ValueAt(i), comparator_);
+      assert(new_bkt->Insert(bkt_page->KeyAt(i), bkt_page->ValueAt(i), comparator_));
       bkt_page->RemoveAt(i);
     }
   }
   // retry to insert key-value again failed just now
   if (KeyToPageId(key, dir_page) == new_page_id) {
-    new_bkt->Insert(key, value, comparator_);
+    assert(new_bkt->Insert(key, value, comparator_));
   } else {
-    bkt_page->Insert(key, value, comparator_);
+    assert(bkt_page->Insert(key, value, comparator_));
   }
   table_latch_.WUnlock();
   raw_page->WUnlatch();
   buffer_pool_manager_->UnpinPage(directory_page_id_, true);
   buffer_pool_manager_->UnpinPage(raw_page->GetPageId(), true);  // FIXME: maybe not dirty
   buffer_pool_manager_->UnpinPage(new_page_id, true);
-  return CODE_OK;
+  return true;
 }
 
 /*****************************************************************************

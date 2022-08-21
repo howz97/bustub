@@ -35,7 +35,12 @@ auto HASH_TABLE_BUCKET_TYPE::GetValue(KeyType key, KeyComparator cmp, std::vecto
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
-auto HASH_TABLE_BUCKET_TYPE::Insert(KeyType key, ValueType value, KeyComparator cmp) -> uint8_t {
+auto HASH_TABLE_BUCKET_TYPE::Insert(KeyType key, ValueType value, KeyComparator cmp) -> bool {
+  return Insert2(key, value, cmp) == CODE_OK;
+}
+
+template <typename KeyType, typename ValueType, typename KeyComparator>
+auto HASH_TABLE_BUCKET_TYPE::Insert2(KeyType key, ValueType value, KeyComparator cmp) -> uint8_t {
   uint32_t tombstone = BUCKET_ARRAY_SIZE;
   for (uint32_t i = 0; i != BUCKET_ARRAY_SIZE; ++i) {
     if (!IsOccupied(i)) {
