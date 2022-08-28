@@ -44,9 +44,9 @@ auto InsertExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
     return false;
   }
   for (IndexInfo *index : indexes) {
-    index->index_->InsertEntry(
-        tuple->KeyFromTuple(tbl_info->schema_, index->key_schema_, index->key_schema_.GetUnlinedColumns()), *rid,
-        exec_ctx_->GetTransaction());
+    IndexMetadata *meta = index->index_->GetMetadata();
+    Tuple key = tuple->KeyFromTuple(tbl_info->schema_, *meta->GetKeySchema(), meta->GetKeyAttrs());
+    index->index_->InsertEntry(key, *rid, exec_ctx_->GetTransaction());
   }
   return true;
 }
