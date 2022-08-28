@@ -23,10 +23,11 @@ void SeqScanExecutor::Init() {}
 
 auto SeqScanExecutor::Next(Tuple *tuple, RID *rid) -> bool {
   TableInfo *tbl_info = exec_ctx_->GetCatalog()->GetTable(plan_->GetTableOid());
+  auto *pred = plan_->GetPredicate();
   for (; itr_ != tbl_info->table_->End(); ++itr_) {
     *tuple = *itr_;
     *rid = itr_->GetRid();
-    if (plan_->GetPredicate()->Evaluate(tuple, &tbl_info->schema_).GetAs<bool>()) {
+    if (pred == nullptr || pred->Evaluate(tuple, &tbl_info->schema_).GetAs<bool>()) {
       ++itr_;
       return true;
     };

@@ -12,16 +12,43 @@
 
 #include <memory>
 
+#include "execution/executor_factory.h"
 #include "execution/executors/insert_executor.h"
 
 namespace bustub {
 
 InsertExecutor::InsertExecutor(ExecutorContext *exec_ctx, const InsertPlanNode *plan,
                                std::unique_ptr<AbstractExecutor> &&child_executor)
-    : AbstractExecutor(exec_ctx) {}
+    : AbstractExecutor(exec_ctx), plan_(plan), raw_val_idx_(0), child_(std::move(child_executor)) {}
 
-void InsertExecutor::Init() {}
+void InsertExecutor::Init() {
+  if (!plan_->IsRawInsert()) {
+    child_->Init();
+  }
+}
 
-auto InsertExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool { return false; }
+auto InsertExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
+  TableInfo *tbl_info = exec_ctx_->GetCatalog()->GetTable(plan_->TableOid());
+  std::vector<IndexInfo *> indexes = exec_ctx_->GetCatalog()->GetTableIndexes(tbl_info->name_);
+  if (plan_->IsRawInsert()) {
+    if (raw_val_idx_ >= plan_->RawValues().size()) {
+      return false;
+    }
+    *tuple = Tuple(plan_->RawValuesAt(raw_val_idx_++), &tbl_info->schema_);
+  } else {
+    if (!child_->Next(tuple, rid)) {
+      return false;
+    }
+  }
+  if (!tbl_info->table_->InsertTuple(*tuple, rid, exec_ctx_->GetTransaction())) {
+    return false;
+  }
+  for (IndexInfo *index : indexes) {
+    index->index_->InsertEntry(
+        tuple->KeyFromTuple(tbl_info->schema_, index->key_schema_, index->key_schema_.GetUnlinedColumns()), *rid,
+        exec_ctx_->GetTransaction());
+  }
+  return true;
+}
 
 }  // namespace bustub
