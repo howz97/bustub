@@ -29,7 +29,6 @@ void InsertExecutor::Init() {
 
 auto InsertExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
   TableInfo *tbl_info = exec_ctx_->GetCatalog()->GetTable(plan_->TableOid());
-  std::vector<IndexInfo *> indexes = exec_ctx_->GetCatalog()->GetTableIndexes(tbl_info->name_);
   if (plan_->IsRawInsert()) {
     if (raw_val_idx_ >= plan_->RawValues().size()) {
       return false;
@@ -43,7 +42,7 @@ auto InsertExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
   if (!tbl_info->table_->InsertTuple(*tuple, rid, exec_ctx_->GetTransaction())) {
     return false;
   }
-  for (IndexInfo *index : indexes) {
+  for (IndexInfo *index : exec_ctx_->GetCatalog()->GetTableIndexes(tbl_info->name_)) {
     IndexMetadata *meta = index->index_->GetMetadata();
     Tuple key = tuple->KeyFromTuple(tbl_info->schema_, *meta->GetKeySchema(), meta->GetKeyAttrs());
     index->index_->InsertEntry(key, *rid, exec_ctx_->GetTransaction());
