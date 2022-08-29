@@ -28,6 +28,8 @@ auto SeqScanExecutor::Next(Tuple *tuple, RID *rid) -> bool {
     *tuple = *itr_;
     *rid = itr_->GetRid();
     if (pred == nullptr || pred->Evaluate(tuple, &tbl_info->schema_).GetAs<bool>()) {
+      auto *out_schema = GetOutputSchema();
+      *tuple = tuple->KeyFromTuple(tbl_info->schema_, *out_schema, tbl_info->schema_.GetColIndexes(out_schema));
       ++itr_;
       return true;
     };

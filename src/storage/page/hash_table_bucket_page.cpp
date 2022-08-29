@@ -62,7 +62,7 @@ auto HASH_TABLE_BUCKET_TYPE::Insert2(KeyType key, ValueType value, KeyComparator
   }
   // bucket is full
   if (tombstone == BUCKET_ARRAY_SIZE) {
-    LOG_WARN("HASH_TABLE_BUCKET_TYPE::Insert bucket is full");
+    LOG_DEBUG("HASH_TABLE_BUCKET_TYPE::Insert bucket is full");
     return CODE_FULL;
   }
   array_[tombstone] = MappingType(key, value);

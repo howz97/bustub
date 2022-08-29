@@ -63,6 +63,14 @@ class Schema {
     UNREACHABLE("Column does not exist");
   }
 
+  auto GetColIndexes(const Schema *schema) const -> std::vector<uint32_t> {
+    std::vector<uint32_t> idxs;
+    for (auto col : schema->GetColumns()) {
+      idxs.push_back(GetColIdx(col.GetName()));
+    }
+    return idxs;
+  }
+
   /** @return the indices of non-inlined columns */
   auto GetUnlinedColumns() const -> const std::vector<uint32_t> & { return uninlined_columns_; }
 
