@@ -31,7 +31,11 @@ auto SeqScanExecutor::Next(Tuple *tuple, RID *rid) -> bool {
     *rid = itr_->GetRid();
     if (pred == nullptr || pred->Evaluate(tuple, &tbl_info->schema_).GetAs<bool>()) {
       auto *out_schema = GetOutputSchema();
-      *tuple = tuple->KeyFromTuple(tbl_info->schema_, *out_schema, tbl_info->schema_.GetColIndexes(out_schema));
+      std::vector<Value> out_vals;
+      for (const auto &col : out_schema->GetColumns()) {
+        out_vals.push_back(col.GetExpr()->Evaluate(tuple, &tbl_info->schema_));
+      }
+      *tuple = Tuple(out_vals, out_schema);
       ++itr_;
       return true;
     }
