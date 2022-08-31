@@ -57,6 +57,20 @@ auto UpdateExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
     return false;
   }
   Tuple new_tp = GenerateUpdatedTuple(old_tp);
+  Transaction *txn = exec_ctx_->GetTransaction();
+  // acquire lock
+  bool locked = false;
+  if (txn->IsSharedLocked(r)) {
+    locked = exec_ctx_->GetLockManager()->LockUpgrade(txn, r);
+  } else if (txn->IsExclusiveLocked(r)) {
+    locked = true;
+  } else {
+    locked = exec_ctx_->GetLockManager()->LockExclusive(txn, r);
+  }
+  if (!locked) {
+    return false;
+  }
+
   if (!table_info_->table_->UpdateTuple(new_tp, r, exec_ctx_->GetTransaction())) {
     return false;
   }
@@ -64,6 +78,10 @@ auto UpdateExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
   for (IndexInfo *index : indexes_) {
     IndexMetadata *meta = index->index_->GetMetadata();
     Tuple key = old_tp.KeyFromTuple(table_info_->schema_, *meta->GetKeySchema(), meta->GetKeyAttrs());
+    IndexWriteRecord rec =
+        IndexWriteRecord(r, table_info_->oid_, WType::UPDATE, new_tp, index->index_oid_, exec_ctx_->GetCatalog());
+    rec.old_tuple_ = old_tp;
+    txn->GetIndexWriteSet()->push_back(std::move(rec));
     index->index_->DeleteEntry(key, r, exec_ctx_->GetTransaction());
     key = new_tp.KeyFromTuple(table_info_->schema_, *meta->GetKeySchema(), meta->GetKeyAttrs());
     index->index_->InsertEntry(key, r, exec_ctx_->GetTransaction());

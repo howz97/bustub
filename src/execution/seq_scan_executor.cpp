@@ -41,6 +41,15 @@ auto SeqScanExecutor::Next(Tuple *tuple, RID *rid) -> bool {
   for (; itr_ != tbl_info->table_->End(); ++itr_) {
     *tuple = *itr_;
     *rid = itr_->GetRid();
+    Transaction *txn = exec_ctx_->GetTransaction();
+    // acquire shared lock
+    bool locked = (txn->IsSharedLocked(*rid) || txn->IsExclusiveLocked(*rid));
+    if (txn->GetIsolationLevel() != IsolationLevel::READ_UNCOMMITTED && !locked) {
+      if (!exec_ctx_->GetLockManager()->LockShared(txn, *rid)) {
+        return false;
+      }
+    }
+
     if (pred == nullptr || pred->Evaluate(tuple, &tbl_info->schema_).GetAs<bool>()) {
       auto *out_schema = GetOutputSchema();
       std::vector<Value> out_vals;
@@ -49,7 +58,15 @@ auto SeqScanExecutor::Next(Tuple *tuple, RID *rid) -> bool {
       }
       *tuple = Tuple(out_vals, out_schema);
       ++itr_;
+      // release lock
+      if (txn->GetIsolationLevel() == IsolationLevel::READ_COMMITTED && txn->IsSharedLocked(*rid)) {
+        exec_ctx_->GetLockManager()->Unlock(txn, *rid);
+      }
       return true;
+    }
+    // release lock
+    if (txn->GetIsolationLevel() == IsolationLevel::READ_COMMITTED && txn->IsSharedLocked(*rid)) {
+      exec_ctx_->GetLockManager()->Unlock(txn, *rid);
     }
   }
   return false;

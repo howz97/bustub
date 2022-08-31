@@ -64,6 +64,95 @@ struct UndoLink {
     return a.prev_txn_ == b.prev_txn_ && a.prev_log_idx_ == b.prev_log_idx_;
   }
 
+  RID rid_;
+  WType wtype_;
+  /** The tuple is only used for the update operation. */
+  Tuple tuple_;
+  /** The table heap specifies which table this write record is for. */
+  TableHeap *table_;
+};
+
+/**
+ * WriteRecord tracks information related to a write.
+ */
+class IndexWriteRecord {
+ public:
+  IndexWriteRecord(RID rid, table_oid_t table_oid, WType wtype, const Tuple &tuple, index_oid_t index_oid,
+                   Catalog *catalog)
+      : rid_(rid), table_oid_(table_oid), wtype_(wtype), tuple_(tuple), index_oid_(index_oid), catalog_(catalog) {}
+
+  // I am taking the fall2021 course from August 2022 because i can't wait for fall2022 projects releasing.
+  // And the following code belong fall2022, not fall2021.
+
+  // IndexWriteRecord(RID rid, table_oid_t table_oid, WType wtype, const Tuple &tuple, const Tuple &old_tuple,
+  //                  index_oid_t index_oid, Catalog *catalog)
+  //     : rid_(rid),
+  //       table_oid_(table_oid),
+  //       wtype_(wtype),
+  //       tuple_(tuple),
+  //       old_tuple_(old_tuple),
+  //       index_oid_(index_oid),
+  //       catalog_(catalog) {}
+
+  /** The rid is the value stored in the index. */
+  RID rid_;
+  /** Table oid. */
+  table_oid_t table_oid_;
+  /** Write type. */
+  WType wtype_;
+  /** The tuple is used to construct an index key. */
+  Tuple tuple_;
+  /** The old tuple is only used for the update operation. */
+  Tuple old_tuple_;
+  /** Each table has an index list, this is the identifier of an index into the list. */
+  index_oid_t index_oid_;
+  /** The catalog contains metadata required to locate index. */
+  Catalog *catalog_;
+};
+
+/**
+ * Reason to a transaction abortion
+ */
+enum class AbortReason {
+  LOCK_ON_SHRINKING,
+  UNLOCK_ON_SHRINKING,
+  UPGRADE_CONFLICT,
+  DEADLOCK,
+  LOCKSHARED_ON_READ_UNCOMMITTED
+};
+
+/**
+ * TransactionAbortException is thrown when state of a transaction is changed to ABORTED
+ */
+class TransactionAbortException : public std::exception {
+  txn_id_t txn_id_;
+  AbortReason abort_reason_;
+
+ public:
+  explicit TransactionAbortException(txn_id_t txn_id, AbortReason abort_reason)
+      : txn_id_(txn_id), abort_reason_(abort_reason) {}
+  auto GetTransactionId() -> txn_id_t { return txn_id_; }
+  auto GetAbortReason() -> AbortReason { return abort_reason_; }
+  auto GetInfo() -> std::string {
+    switch (abort_reason_) {
+      case AbortReason::LOCK_ON_SHRINKING:
+        return "Transaction " + std::to_string(txn_id_) +
+               " aborted because it can not take locks in the shrinking state\n";
+      case AbortReason::UNLOCK_ON_SHRINKING:
+        return "Transaction " + std::to_string(txn_id_) +
+               " aborted because it can not excute unlock in the shrinking state\n";
+      case AbortReason::UPGRADE_CONFLICT:
+        return "Transaction " + std::to_string(txn_id_) +
+               " aborted because another transaction is already waiting to upgrade its lock\n";
+      case AbortReason::DEADLOCK:
+        return "Transaction " + std::to_string(txn_id_) + " aborted on deadlock\n";
+      case AbortReason::LOCKSHARED_ON_READ_UNCOMMITTED:
+        return "Transaction " + std::to_string(txn_id_) + " aborted on lockshared on READ_UNCOMMITTED\n";
+    }
+    // Todo: Should fail with unreachable.
+    return "";
+  }
+
   friend auto operator!=(const UndoLink &a, const UndoLink &b) { return !(a == b); }
 
   /* Checks if the undo link points to something. */
@@ -101,7 +190,8 @@ class Transaction {
   /** @return the id of this transaction */
   inline auto GetTransactionId() const -> txn_id_t { return txn_id_; }
 
-  /** @return the id of this transaction, stripping the highest bit. NEVER use/store this value unless for debugging. */
+  /** @return the id of this transaction, stripping the highest bit. NEVER use/store this value unless for debugging.
+   */
   inline auto GetTransactionIdHumanReadable() const -> txn_id_t { return txn_id_ ^ TXN_START_ID; }
 
   /** @return the temporary timestamp of this transaction */

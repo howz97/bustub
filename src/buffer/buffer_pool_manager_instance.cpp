@@ -54,10 +54,8 @@ auto BufferPoolManagerInstance::FlushPgImp(page_id_t page_id) -> bool {
   }
   frame_id_t frame_id = it->second;
   Page *page = &pages_[frame_id];
-  if (page->IsDirty()) {
-    disk_manager_->WritePage(page_id, page->GetData());
-    page->is_dirty_ = false;
-  }
+  disk_manager_->WritePage(page_id, page->GetData());
+  page->is_dirty_ = false;
   return true;
 }
 
@@ -65,10 +63,8 @@ void BufferPoolManagerInstance::FlushAllPgsImp() {
   std::lock_guard<std::mutex> guard(latch_);
   for (auto &it : page_table_) {
     Page *page = &pages_[it.second];
-    if (page->IsDirty()) {
-      disk_manager_->WritePage(it.first, page->GetData());
-      page->is_dirty_ = false;
-    }
+    disk_manager_->WritePage(it.first, page->GetData());
+    page->is_dirty_ = false;
   }
 }
 
@@ -174,10 +170,17 @@ auto BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) -> bool {
 
 auto BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) -> bool {
   std::lock_guard<std::mutex> guard(latch_);
-  frame_id_t frame_id = page_table_.find(page_id)->second;
+  auto it = page_table_.find(page_id);
+  if (it == page_table_.end()) {
+    return false;
+  }
+  frame_id_t frame_id = it->second;
   Page *page = &pages_[frame_id];
   if (is_dirty) {
     page->is_dirty_ = true;
+  }
+  if (page->pin_count_ <= 0) {
+    return false;
   }
   page->pin_count_ -= 1;
   if (page->GetPinCount() == 0) {

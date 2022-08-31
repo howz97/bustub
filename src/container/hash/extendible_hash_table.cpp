@@ -99,12 +99,12 @@ void IterBuckets(uint32_t index, uint8_t gd, uint8_t ld, F lambda) {
   }
 }
 
-bool CheckBit(uint32_t num, uint8_t offset) {
+auto CheckBit(uint32_t num, uint8_t offset) -> bool {
   uint32_t musk = 1 << (offset - 1);
   return (num & musk) > 0;
 }
 
-uint32_t InvertBit(uint32_t num, uint8_t offset) {
+auto InvertBit(uint32_t num, uint8_t offset) -> uint32_t {
   uint32_t musk = 1 << (offset - 1);
   return num ^ musk;
 }

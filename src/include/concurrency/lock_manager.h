@@ -17,6 +17,7 @@
 #include <list>
 #include <memory>
 #include <mutex>  // NOLINT
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -49,8 +50,8 @@ class LockManager {
         : txn_id_(txn_id), lock_mode_(lock_mode), oid_(oid) {}
     LockRequest(txn_id_t txn_id, LockMode lock_mode, table_oid_t oid, RID rid) /** Row lock request */
         : txn_id_(txn_id), lock_mode_(lock_mode), oid_(oid), rid_(rid) {}
+    auto ToString() -> std::string;
 
-    /** Txn_id of the txn requesting the lock */
     txn_id_t txn_id_;
     /** Locking mode of the requested lock */
     LockMode lock_mode_;
@@ -60,11 +61,15 @@ class LockManager {
     RID rid_;
     /** Whether the lock has been granted or not */
     bool granted_{false};
+    Transaction *txn_;
   };
 
   class LockRequestQueue {
    public:
     /** List of lock requests for the same resource (table or row) */
+    auto IsLocked() -> bool;
+    void Grant(txn_id_t txn_id);
+    auto ToString() -> std::string;
     std::list<std::shared_ptr<LockRequest>> request_queue_;
     /** For notifying blocked transactions on this rid */
     std::condition_variable cv_;
@@ -274,6 +279,10 @@ class LockManager {
   /** Waits-for graph representation. */
   std::unordered_map<txn_id_t, std::vector<txn_id_t>> waits_for_;
   std::mutex waits_for_latch_;
+
+  /** Lock table for lock requests. */
+  std::unordered_map<RID, LockRequestQueue> lock_table_;
+  std::unordered_map<txn_id_t, RID> blocking_;
 };
 
 }  // namespace bustub
