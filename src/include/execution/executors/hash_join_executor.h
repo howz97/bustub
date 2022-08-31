@@ -19,9 +19,10 @@
 #include "execution/executor_context.h"
 #include "execution/executors/abstract_executor.h"
 #include "execution/expressions/abstract_expression.h"
+#include "execution/plans/aggregation_plan.h"
 #include "execution/plans/hash_join_plan.h"
 namespace bustub {
-using ummap = std::unordered_multimap<HJKey, bustub::Tuple>;
+using ummap = std::unordered_multimap<AggregateKey, bustub::Tuple>;
 
 /**
  * HashJoinExecutor executes a nested-loop JOIN on two tables.
@@ -53,7 +54,7 @@ class HashJoinExecutor : public AbstractExecutor {
   auto GetOutputSchema() -> const Schema * override { return plan_->OutputSchema(); };
 
  private:
-  auto MakeHJKey(Value &v) -> HJKey { return HJKey{v}; }
+  auto MakeHJKey(const Value &v) -> AggregateKey { return AggregateKey{{v}}; }
   /** The NestedLoopJoin plan node to be executed. */
   const HashJoinPlanNode *plan_;
   std::unique_ptr<AbstractExecutor> left_child_;

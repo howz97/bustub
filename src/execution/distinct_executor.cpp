@@ -25,7 +25,7 @@ auto DistinctExecutor::Next(Tuple *tuple, RID *rid) -> bool {
     if (!child_executor_->Next(tuple, rid)) {
       return false;
     }
-    DistnKey k = MakeDistinctKey(tuple);
+    AggregateKey k = MakeDistinctKey(tuple);
     if (dedup_[k]) {
       continue;
     }

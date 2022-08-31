@@ -30,7 +30,7 @@ void HashJoinExecutor::Init() {
   auto schema = right_child_->GetOutputSchema();
   while (right_child_->Next(&tuple, &rid)) {
     auto v = plan_->RightJoinKeyExpression()->Evaluate(&tuple, schema);
-    HJKey hjk = MakeHJKey(v);
+    AggregateKey hjk = MakeHJKey(v);
     map_.insert(std::pair(hjk, tuple));
   }
   left_child_->Init();
