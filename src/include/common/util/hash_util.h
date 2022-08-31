@@ -103,3 +103,10 @@ class HashUtil {
 };
 
 }  // namespace bustub
+
+namespace std {
+template <>
+struct hash<bustub::Value> {
+  auto operator()(const bustub::Value &val) const -> std::size_t { return bustub::HashUtil::HashValue(&val); }
+};
+}  // namespace std

@@ -29,7 +29,7 @@ void HashJoinExecutor::Init() {
   RID rid;
   auto schema = right_child_->GetOutputSchema();
   while (right_child_->Next(&tuple, &rid)) {
-    map_->insert({plan_->RightJoinKeyExpression()->Evaluate(&tuple, schema).ToString(), tuple});
+    map_->insert({plan_->RightJoinKeyExpression()->Evaluate(&tuple, schema), tuple});
   }
   range_ = {map_->end(), map_->end()};
   left_child_->Init();
@@ -43,13 +43,13 @@ auto HashJoinExecutor::Next(Tuple *tuple, RID *rid) -> bool {
       return false;
     }
     auto k = plan_->LeftJoinKeyExpression()->Evaluate(&left_tuple_, left_schema);
-    range_ = map_->equal_range(k.ToString());
+    range_ = map_->equal_range(k);
   }
   auto right_schema = right_child_->GetOutputSchema();
   auto out_schema = plan_->OutputSchema();
   Tuple right_tuple = (range_.first++)->second;
   std::vector<Value> vals;
-  for (auto col : out_schema->GetColumns()) {
+  for (const auto &col : out_schema->GetColumns()) {
     vals.push_back(col.GetExpr()->EvaluateJoin(&left_tuple_, left_schema, &right_tuple, right_schema));
   }
   *tuple = Tuple(vals, out_schema);

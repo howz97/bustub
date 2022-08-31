@@ -140,6 +140,7 @@ class Value {
   inline auto ToString() const -> std::string { return Type::GetInstance(type_id_)->ToString(*this); }
   // Create a copy of this value
   inline auto Copy() const -> Value { return Type::GetInstance(type_id_)->Copy(*this); }
+  auto operator==(const Value &other) const -> bool { return CompareEquals(other) == CmpBool::CmpTrue; }
 
  protected:
   // The actual value item

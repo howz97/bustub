@@ -43,7 +43,7 @@ auto AggregationExecutor::Next(Tuple *tuple, RID *rid) -> bool {
       continue;
     }
     std::vector<Value> out_vals;
-    for (auto col : plan_->OutputSchema()->GetColumns()) {
+    for (const auto &col : plan_->OutputSchema()->GetColumns()) {
       out_vals.push_back(col.GetExpr()->EvaluateAggregate(gby, agg));
     }
     *tuple = Tuple(out_vals, plan_->OutputSchema());

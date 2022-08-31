@@ -54,7 +54,7 @@ auto NestedLoopJoinExecutor::Next(Tuple *tuple, RID *rid) -> bool {
     }
   }
   std::vector<Value> vals;
-  for (auto col : GetOutputSchema()->GetColumns()) {
+  for (const auto &col : GetOutputSchema()->GetColumns()) {
     vals.push_back(col.GetExpr()->EvaluateJoin(&left_tuple_, left_executor_->GetOutputSchema(), &right_tuple,
                                                right_executor_->GetOutputSchema()));
   }

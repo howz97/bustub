@@ -34,7 +34,7 @@ auto SeqScanExecutor::Next(Tuple *tuple, RID *rid) -> bool {
       *tuple = tuple->KeyFromTuple(tbl_info->schema_, *out_schema, tbl_info->schema_.GetColIndexes(out_schema));
       ++itr_;
       return true;
-    };
+    }
   }
   return false;
 }

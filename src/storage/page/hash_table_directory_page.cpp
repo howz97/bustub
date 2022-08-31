@@ -47,7 +47,7 @@ void HashTableDirectoryPage::IncrGlobalDepth() {
     local_depths_[i | end] = local_depths_[i];
     bucket_page_ids_[i | end] = bucket_page_ids_[i];
   }
-  LOG_DEBUG("HashTableDirectoryPage::IncrGlobalDepth");
+  // LOG_DEBUG("HashTableDirectoryPage::IncrGlobalDepth");
 }
 
 void HashTableDirectoryPage::DecrGlobalDepth() {

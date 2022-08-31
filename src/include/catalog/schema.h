@@ -65,7 +65,7 @@ class Schema {
 
   auto GetColIndexes(const Schema *schema) const -> std::vector<uint32_t> {
     std::vector<uint32_t> idxs;
-    for (auto col : schema->GetColumns()) {
+    for (const auto &col : schema->GetColumns()) {
       idxs.push_back(GetColIdx(col.GetName()));
     }
     return idxs;

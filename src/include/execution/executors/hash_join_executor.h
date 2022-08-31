@@ -13,6 +13,7 @@
 #pragma once
 
 #include <memory>
+#include <unordered_map>
 #include <utility>
 
 #include "execution/executor_context.h"
@@ -22,7 +23,8 @@
 #include "storage/table/tuple.h"
 
 namespace bustub {
-typedef std::unordered_multimap<std::string, bustub::Tuple> ummap;
+
+using ummap = std::unordered_multimap<bustub::Value, bustub::Tuple>;
 
 /**
  * HashJoinExecutor executes a nested-loop JOIN on two tables.

@@ -112,17 +112,15 @@ class Tuple {
 }  // namespace bustub
 
 namespace std {
-
-/** Implements std::hash on AggregateKey */
 template <>
 struct hash<bustub::Tuple> {
   auto operator()(const bustub::Tuple &tuple) const -> std::size_t {
     size_t curr_hash = 0;
     for (size_t i = 0; i < tuple.GetLength(); ++i) {
-      curr_hash = bustub::HashUtil::CombineHashes(curr_hash, bustub::HashUtil::Hash(tuple.GetData()));
+      size_t r = bustub::HashUtil::HashBytes(tuple.GetData(), tuple.GetLength());
+      curr_hash = bustub::HashUtil::CombineHashes(curr_hash, r);
     }
     return curr_hash;
   }
 };
-
 }  // namespace std

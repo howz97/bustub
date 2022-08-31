@@ -62,7 +62,7 @@ auto HASH_TABLE_BUCKET_TYPE::Insert2(KeyType key, ValueType value, KeyComparator
   }
   // bucket is full
   if (tombstone == BUCKET_ARRAY_SIZE) {
-    LOG_DEBUG("HASH_TABLE_BUCKET_TYPE::Insert bucket is full");
+    // LOG_DEBUG("HASH_TABLE_BUCKET_TYPE::Insert bucket is full");
     return CODE_FULL;
   }
   array_[tombstone] = MappingType(key, value);
@@ -99,27 +99,27 @@ auto HASH_TABLE_BUCKET_TYPE::ValueAt(uint32_t bucket_idx) const -> ValueType {
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 void HASH_TABLE_BUCKET_TYPE::RemoveAt(uint32_t bucket_idx) {
-  readable_[bucket_idx / 8] &= ~uint8_t(128 >> (bucket_idx % 8));
+  readable_[bucket_idx / 8] &= ~static_cast<uint8_t>(128 >> (bucket_idx % 8));
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 auto HASH_TABLE_BUCKET_TYPE::IsOccupied(uint32_t bucket_idx) const -> bool {
-  return (occupied_[bucket_idx / 8] & uint8_t(128 >> (bucket_idx % 8))) > 0;
+  return (occupied_[bucket_idx / 8] & static_cast<uint8_t>(128 >> (bucket_idx % 8))) > 0;
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 void HASH_TABLE_BUCKET_TYPE::SetOccupied(uint32_t bucket_idx) {
-  occupied_[bucket_idx / 8] |= uint8_t(128 >> (bucket_idx % 8));
+  occupied_[bucket_idx / 8] |= static_cast<uint8_t>(128 >> (bucket_idx % 8));
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 auto HASH_TABLE_BUCKET_TYPE::IsReadable(uint32_t bucket_idx) const -> bool {
-  return (readable_[bucket_idx / 8] & uint8_t(128 >> (bucket_idx % 8))) > 0;
+  return (readable_[bucket_idx / 8] & static_cast<uint8_t>(128 >> (bucket_idx % 8))) > 0;
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 void HASH_TABLE_BUCKET_TYPE::SetReadable(uint32_t bucket_idx) {
-  readable_[bucket_idx / 8] |= uint8_t(128 >> (bucket_idx % 8));
+  readable_[bucket_idx / 8] |= static_cast<uint8_t>(128 >> (bucket_idx % 8));
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
