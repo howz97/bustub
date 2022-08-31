@@ -25,10 +25,11 @@ auto DistinctExecutor::Next(Tuple *tuple, RID *rid) -> bool {
     if (!child_executor_->Next(tuple, rid)) {
       return false;
     }
-    if (dedup_[*tuple]) {
+    DistnKey k = MakeDistinctKey(tuple);
+    if (dedup_[k]) {
       continue;
     }
-    dedup_[*tuple] = true;
+    dedup_[k] = true;
     break;
   }
   return true;

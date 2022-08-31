@@ -87,18 +87,6 @@ class Tuple {
 
   auto ToString(const Schema *schema) const -> std::string;
 
-  auto operator==(const Tuple &other) const -> bool {
-    if (size_ != other.size_) {
-      return false;
-    }
-    for (size_t i = 0; i < size_; ++i) {
-      if (data_[i] != other.data_[i]) {
-        return false;
-      }
-    }
-    return true;
-  }
-
  private:
   // Get the starting storage address of specific column
   auto GetDataPtr(const Schema *schema, uint32_t column_idx) const -> const char *;
@@ -110,17 +98,3 @@ class Tuple {
 };
 
 }  // namespace bustub
-
-namespace std {
-template <>
-struct hash<bustub::Tuple> {
-  auto operator()(const bustub::Tuple &tuple) const -> std::size_t {
-    size_t curr_hash = 0;
-    for (size_t i = 0; i < tuple.GetLength(); ++i) {
-      size_t r = bustub::HashUtil::HashBytes(tuple.GetData(), tuple.GetLength());
-      curr_hash = bustub::HashUtil::CombineHashes(curr_hash, r);
-    }
-    return curr_hash;
-  }
-};
-}  // namespace std

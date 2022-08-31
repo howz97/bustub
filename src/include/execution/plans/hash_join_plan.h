@@ -65,4 +65,15 @@ class HashJoinPlanNode : public AbstractPlanNode {
   const AbstractExpression *right_key_expression_;
 };
 
+struct HJKey {
+  bustub::Value v_;
+  auto operator==(const HJKey &other) const -> bool { return v_.CompareEquals(other.v_) == CmpBool::CmpTrue; }
+};
 }  // namespace bustub
+
+namespace std {
+template <>
+struct hash<bustub::HJKey> {
+  auto operator()(const bustub::HJKey &hjk) const -> std::size_t { return bustub::HashUtil::HashValue(&hjk.v_); }
+};
+}  // namespace std

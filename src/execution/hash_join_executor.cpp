@@ -20,18 +20,19 @@ HashJoinExecutor::HashJoinExecutor(ExecutorContext *exec_ctx, const HashJoinPlan
     : AbstractExecutor(exec_ctx),
       plan_(plan),
       left_child_(std::move(left_child)),
-      right_child_(std::move(right_child)) {}
+      right_child_(std::move(right_child)),
+      range_(std::pair(map_.end(), map_.end())) {}
 
 void HashJoinExecutor::Init() {
-  map_ = std::make_unique<ummap>();
   right_child_->Init();
   Tuple tuple;
   RID rid;
   auto schema = right_child_->GetOutputSchema();
   while (right_child_->Next(&tuple, &rid)) {
-    map_->insert({plan_->RightJoinKeyExpression()->Evaluate(&tuple, schema), tuple});
+    auto v = plan_->RightJoinKeyExpression()->Evaluate(&tuple, schema);
+    HJKey hjk = MakeHJKey(v);
+    map_.insert(std::pair(hjk, tuple));
   }
-  range_ = {map_->end(), map_->end()};
   left_child_->Init();
 }
 
@@ -43,7 +44,7 @@ auto HashJoinExecutor::Next(Tuple *tuple, RID *rid) -> bool {
       return false;
     }
     auto k = plan_->LeftJoinKeyExpression()->Evaluate(&left_tuple_, left_schema);
-    range_ = map_->equal_range(k);
+    range_ = map_.equal_range(MakeHJKey(k));
   }
   auto right_schema = right_child_->GetOutputSchema();
   auto out_schema = plan_->OutputSchema();
