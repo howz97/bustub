@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.10)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)   # For clang-tidy.
 set(BUILD_SHARED_LIBS ON)
-set(CMAKE_CXX_STANDARD 17)              # Compile as C++17
-set(CMAKE_CXX_STANDARD_REQUIRED ON)     # Require C++17 support
+set(CMAKE_CXX_STANDARD 17)              # Compile as C++17.
+set(CMAKE_CXX_STANDARD_REQUIRED ON)     # Require C++17 support.
 
 project(BusTub
-        VERSION 2022.1
+        VERSION 2022.8
         DESCRIPTION "The BusTub Relational Database Management System (Educational) @ https://github.com/cmu-db/bustub"
         LANGUAGES C CXX
         )
@@ -22,7 +22,19 @@ endif ()
 # Expected directory structure.
 set(BUSTUB_BUILD_SUPPORT_DIR "${CMAKE_SOURCE_DIR}/build_support")
 set(BUSTUB_CLANG_SEARCH_PATH "/usr/local/bin" "/usr/bin" "/usr/local/opt/llvm/bin" "/usr/local/opt/llvm@12/bin"
-        "/usr/local/Cellar/llvm/12.0.1/bin")
+        "/usr/local/Cellar/llvm/12.0.1/bin" "/opt/homebrew/opt/llvm@12/bin/")
+
+if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    if (CMAKE_CXX_COMPILER_VERSION MATCHES "^12.")
+        message(STATUS "You're using ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
+    else ()
+        message(WARNING "!! We recommend that you use clang-12 for developing BusTub. You're using ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}, a different version.")
+    endif ()
+elseif (CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
+    message(WARNING "!! We recommend that you use `brew install llvm@12` (the one installed with homebrew) for developing BusTub. You're using ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}, the one bundled by Apple.")
+else ()
+    message(WARNING "!! We recommend that you use clang-12 for developing BusTub. You're using ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}, which is not clang.")
+endif ()
 
 ######################################################################################################################
 # DEPENDENCIES
@@ -32,65 +44,52 @@ set(BUSTUB_CLANG_SEARCH_PATH "/usr/local/bin" "/usr/bin" "/usr/local/opt/llvm/bi
 enable_testing()
 
 # clang-format
-if (NOT DEFINED CLANG_FORMAT_BIN)
-    # attempt to find the binary if user did not specify
-    find_program(CLANG_FORMAT_BIN
-            NAMES clang-format clang-format-12
-            HINTS ${BUSTUB_CLANG_SEARCH_PATH})
-endif()
+
+# attempt to find the binary if user did not specify
+find_program(CLANG_FORMAT_BIN
+        NAMES clang-format clang-format-12
+        HINTS ${BUSTUB_CLANG_SEARCH_PATH})
+
 if ("${CLANG_FORMAT_BIN}" STREQUAL "CLANG_FORMAT_BIN-NOTFOUND")
     message(WARNING "BusTub/main couldn't find clang-format.")
-else()
+else ()
     message(STATUS "BusTub/main found clang-format at ${CLANG_FORMAT_BIN}")
-endif()
+endif ()
 
-# clang-tidy
-if (NOT DEFINED CLANG_TIDY_BIN)
-    # attempt to find the binary if user did not specify
-    find_program(CLANG_TIDY_BIN
-            NAMES clang-tidy clang-tidy-12
-            HINTS ${BUSTUB_CLANG_SEARCH_PATH})
-endif()
+# attempt to find the binary if user did not specify
+find_program(CLANG_TIDY_BIN
+        NAMES clang-tidy clang-tidy-12
+        HINTS ${BUSTUB_CLANG_SEARCH_PATH})
+
 if ("${CLANG_TIDY_BIN}" STREQUAL "CLANG_TIDY_BIN-NOTFOUND")
     message(WARNING "BusTub/main couldn't find clang-tidy.")
-else()
+else ()
     # Output compile_commands.json
     set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
     message(STATUS "BusTub/main found clang-tidy at ${CLANG_TIDY_BIN}")
-endif()
+endif ()
 
 # cpplint
 find_program(CPPLINT_BIN
         NAMES cpplint cpplint.py
         HINTS "${BUSTUB_BUILD_SUPPORT_DIR}")
+
 if ("${CPPLINT_BIN}" STREQUAL "CPPLINT_BIN-NOTFOUND")
     message(WARNING "BusTub/main couldn't find cpplint.")
-else()
+else ()
     message(STATUS "BusTub/main found cpplint at ${CPPLINT_BIN}")
-endif()
-
-# gmock gtest https://crascit.com/2015/07/25/cmake-gtest/
-configure_file("${PROJECT_SOURCE_DIR}/build_support/gtest_CMakeLists.txt.in" googletest-download/CMakeLists.txt)
-execute_process(COMMAND "${CMAKE_COMMAND}" -G "${CMAKE_GENERATOR}" .
-        WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/googletest-download")
-execute_process(COMMAND "${CMAKE_COMMAND}" --build .
-        WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/googletest-download")
-set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)  # don't override our compiler/linker options when building gtest
-add_subdirectory("${CMAKE_BINARY_DIR}/googletest-src" "${CMAKE_BINARY_DIR}/googletest-build")
+endif ()
 
 ######################################################################################################################
 # COMPILER SETUP
 ######################################################################################################################
 
 # Compiler flags.
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -Wall -Wextra -Werror")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Werror")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-parameter -Wno-attributes") #TODO: remove
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -ggdb -fsanitize=address -fno-omit-frame-pointer -fno-optimize-sibling-calls")
-set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -fPIC")
-set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fPIC")
-set(CMAKE_STATIC_LINKER_FLAGS "${CMAKE_STATIC_LINKER_FLAGS} -fPIC")
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-set(GCC_COVERAGE_LINK_FLAGS    "-fPIC")
 message(STATUS "CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
 message(STATUS "CMAKE_CXX_FLAGS_DEBUG: ${CMAKE_CXX_FLAGS_DEBUG}")
 message(STATUS "CMAKE_EXE_LINKER_FLAGS: ${CMAKE_EXE_LINKER_FLAGS}")
@@ -101,15 +100,28 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
+
 # Includes.
 set(BUSTUB_SRC_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/src/include)
 set(BUSTUB_TEST_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/test/include)
-set(BUSTUB_THIRD_PARTY_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/third_party)
+set(BUSTUB_THIRD_PARTY_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/third_party ${PROJECT_SOURCE_DIR}/third_party/fmt/include)
 include_directories(${BUSTUB_SRC_INCLUDE_DIR} ${BUSTUB_TEST_INCLUDE_DIR} ${BUSTUB_THIRD_PARTY_INCLUDE_DIR})
 include_directories(BEFORE src) # This is needed for gtest.
 
+function(disable_target_warnings NAME)
+    target_compile_options(${NAME} PRIVATE "-w")
+endfunction()
+
+######################################################################################################################
+# Other CMake modules
+# MUST BE ADDED AFTER CONFIGURING COMPILER PARAMETERS
+######################################################################################################################
+
 add_subdirectory(src)
 add_subdirectory(test)
+add_subdirectory(third_party)
+add_subdirectory(tools)
+
 ######################################################################################################################
 # MAKE TARGETS
 ######################################################################################################################
@@ -173,4 +185,30 @@ add_custom_target(check-clang-tidy
         -clang-tidy-binary ${CLANG_TIDY_BIN}                              # using our clang-tidy binary
         -p ${CMAKE_BINARY_DIR}                                            # using cmake's generated compile commands
         )
-add_dependencies(check-clang-tidy gtest bustub_shared)                    # needs gtest headers, compile_commands.json
+add_custom_target(fix-clang-tidy
+        ${BUSTUB_BUILD_SUPPORT_DIR}/run_clang_tidy.py                     # run LLVM's clang-tidy script
+        -clang-tidy-binary ${CLANG_TIDY_BIN}                              # using our clang-tidy binary
+        -p ${CMAKE_BINARY_DIR}                                            # using cmake's generated compile commands
+        -fix                                                              # apply suggested changes generated by clang-tidy
+        )
+add_custom_target(check-clang-tidy-diff
+        ${BUSTUB_BUILD_SUPPORT_DIR}/run_clang_tidy.py                     # run LLVM's clang-tidy script
+        -clang-tidy-binary ${CLANG_TIDY_BIN}                              # using our clang-tidy binary
+        -p ${CMAKE_BINARY_DIR}                                            # using cmake's generated compile commands
+        -only-diff                                                        # only check diff files to master
+        )
+
+###########################################################
+# "make check-clang-tidy" target for projects
+# check clang-tidy on the whole projects is slow, so we
+# hardcode some files to check here for each project.
+###########################################################
+add_custom_target(check-clang-tidy-p0
+        ${BUSTUB_BUILD_SUPPORT_DIR}/run_clang_tidy.py                     # run LLVM's clang-tidy script
+        -clang-tidy-binary ${CLANG_TIDY_BIN}                              # using our clang-tidy binary
+        -p ${CMAKE_BINARY_DIR}                                            # using cmake's generated compile commands
+        -j 1
+        "src/primer/p0_trie.cpp"
+        )
+
+add_dependencies(check-clang-tidy gtest bustub)                    # needs gtest headers, compile_commands.json
