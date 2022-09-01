@@ -27,11 +27,11 @@ void HashJoinExecutor::Init() {
   Tuple tuple;
   RID rid;
   left_child_->Init();
-  if (!left_child_->Next(&tuple, &rid)) {
-    // left child is empty, no need to initialize hashtable
-    return;
-  }
-  left_child_->Init();
+  // if (!left_child_->Next(&tuple, &rid)) {
+  //   // left child is empty, no need to initialize hashtable
+  //   return;
+  // }
+  // left_child_->Init();
 
   right_child_->Init();
   auto schema = right_child_->GetOutputSchema();
