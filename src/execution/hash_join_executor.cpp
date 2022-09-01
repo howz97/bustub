@@ -24,16 +24,22 @@ HashJoinExecutor::HashJoinExecutor(ExecutorContext *exec_ctx, const HashJoinPlan
       range_(std::pair(map_.end(), map_.end())) {}
 
 void HashJoinExecutor::Init() {
-  right_child_->Init();
   Tuple tuple;
   RID rid;
+  left_child_->Init();
+  if (!left_child_->Next(&tuple, &rid)) {
+    // left child is empty, no need to initialize hashtable
+    return;
+  }
+  left_child_->Init();
+
+  right_child_->Init();
   auto schema = right_child_->GetOutputSchema();
   while (right_child_->Next(&tuple, &rid)) {
     auto v = plan_->RightJoinKeyExpression()->Evaluate(&tuple, schema);
     AggregateKey hjk = MakeHJKey(v);
     map_.insert(std::pair(hjk, tuple));
   }
-  left_child_->Init();
 }
 
 auto HashJoinExecutor::Next(Tuple *tuple, RID *rid) -> bool {

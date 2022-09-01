@@ -419,6 +419,51 @@ TEST_F(ExecutorTest, SimpleNestedLoopJoinTest) {
   ASSERT_EQ(result_set.size(), 100);
 }
 
+TEST_F(ExecutorTest, NestedLoopJoinTest) {
+  const Schema *out_schema1;
+  std::unique_ptr<AbstractPlanNode> scan_plan1;
+  {
+    auto table_info = GetExecutorContext()->GetCatalog()->GetTable("test_1");
+    auto &schema = table_info->schema_;
+    auto col_a = MakeColumnValueExpression(schema, 0, "colA");
+    auto col_b = MakeColumnValueExpression(schema, 0, "colB");
+    auto *const1014 = MakeConstantValueExpression(ValueFactory::GetIntegerValue(1014));
+    auto *predicate = MakeComparisonExpression(col_a, const1014, ComparisonType::Equal);
+    out_schema1 = MakeOutputSchema({{"colA", col_a}, {"colB", col_b}});
+    scan_plan1 = std::make_unique<SeqScanPlanNode>(out_schema1, predicate, table_info->oid_);
+  }
+
+  const Schema *out_schema2;
+  std::unique_ptr<AbstractPlanNode> scan_plan2;
+  {
+    auto table_info = GetExecutorContext()->GetCatalog()->GetTable("test_2");
+    auto &schema = table_info->schema_;
+    auto col1 = MakeColumnValueExpression(schema, 0, "col1");
+    auto col3 = MakeColumnValueExpression(schema, 0, "col3");
+    out_schema2 = MakeOutputSchema({{"col1", col1}, {"col3", col3}});
+    scan_plan2 = std::make_unique<SeqScanPlanNode>(out_schema2, nullptr, table_info->oid_);
+  }
+
+  const Schema *out_final;
+  std::unique_ptr<NestedLoopJoinPlanNode> join_plan;
+  {
+    // col_a and col_b have a tuple index of 0 because they are the left side of the join
+    auto col_a = MakeColumnValueExpression(*out_schema1, 0, "colA");
+    auto col_b = MakeColumnValueExpression(*out_schema1, 0, "colB");
+    // col1 and col2 have a tuple index of 1 because they are the right side of the join
+    auto col1 = MakeColumnValueExpression(*out_schema2, 1, "col1");
+    auto col3 = MakeColumnValueExpression(*out_schema2, 1, "col3");
+    auto predicate = MakeComparisonExpression(col_a, col1, ComparisonType::Equal);
+    out_final = MakeOutputSchema({{"colA", col_a}, {"colB", col_b}, {"col1", col1}, {"col3", col3}});
+    join_plan = std::make_unique<NestedLoopJoinPlanNode>(
+        out_final, std::vector<const AbstractPlanNode *>{scan_plan1.get(), scan_plan2.get()}, predicate);
+  }
+
+  std::vector<Tuple> result_set{};
+  GetExecutionEngine()->Execute(join_plan.get(), &result_set, GetTxn(), GetExecutorContext());
+  ASSERT_EQ(result_set.size(), 0);
+}
+
 // SELECT test_4.colA, test_4.colB, test_6.colA, test_6.colB FROM test_4 JOIN test_6 ON test_4.colA = test_6.colA;
 TEST_F(ExecutorTest, SimpleHashJoinTest) {
   // Construct sequential scan of table test_4
