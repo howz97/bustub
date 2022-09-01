@@ -122,7 +122,9 @@ TEST_F(ExecutorTest, SimpleRawInsertTest) {
   auto table_info = GetExecutorContext()->GetCatalog()->GetTable("empty_table2");
   InsertPlanNode insert_plan{std::move(raw_vals), table_info->oid_};
 
-  GetExecutionEngine()->Execute(&insert_plan, nullptr, GetTxn(), GetExecutorContext());
+  std::vector<Tuple> should_empty{};
+  GetExecutionEngine()->Execute(&insert_plan, &should_empty, GetTxn(), GetExecutorContext());
+  ASSERT_TRUE(should_empty.empty());
 
   // Iterate through table make sure that values were inserted.
 
