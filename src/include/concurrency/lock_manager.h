@@ -46,6 +46,7 @@ class LockManager {
 
   class LockRequestQueue {
    public:
+    auto IsLocked() -> bool;
     std::list<LockRequest> request_queue_;
     // for notifying blocked transactions on this rid
     std::condition_variable cv_;
