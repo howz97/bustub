@@ -18,9 +18,13 @@
 namespace bustub {
 
 auto LockManager::LockShared(Transaction *txn, const RID &rid) -> bool {
+  LOG_DEBUG("transaction %d LockShared %s", txn->GetTransactionId(), rid.ToString().c_str());
   if (txn->GetIsolationLevel() == IsolationLevel::READ_UNCOMMITTED) {
     // READ_UNCOMMITTED read data without lock
     throw TransactionAbortException(txn->GetTransactionId(), AbortReason::LOCKSHARED_ON_READ_UNCOMMITTED);
+  }
+  if (txn->IsSharedLocked(rid)) {
+    UNREACHABLE("duplicated lock");
   }
   if (txn->GetState() == TransactionState::SHRINKING) {
     txn->SetState(TransactionState::ABORTED);
@@ -63,7 +67,7 @@ auto LockManager::LockShared(Transaction *txn, const RID &rid) -> bool {
   if (txn->GetState() == TransactionState::ABORTED) {
     queue->request_queue_.remove_if([&](LockRequest r) { return r.txn_id_ == req.txn_id_; });
     queue->cv_.notify_all();
-    throw TransactionAbortException(txn->GetTransactionId(), AbortReason::DEADLOCK);
+    return false;
   }
   req.granted_ = true;
   txn->GetSharedLockSet()->emplace(rid);
@@ -71,6 +75,10 @@ auto LockManager::LockShared(Transaction *txn, const RID &rid) -> bool {
 }
 
 auto LockManager::LockExclusive(Transaction *txn, const RID &rid) -> bool {
+  LOG_DEBUG("transaction %d LockExclusive %s", txn->GetTransactionId(), rid.ToString().c_str());
+  if (txn->IsExclusiveLocked(rid)) {
+    UNREACHABLE("duplicated lock");
+  }
   if (txn->GetState() == TransactionState::SHRINKING) {
     txn->SetState(TransactionState::ABORTED);
     throw TransactionAbortException(txn->GetTransactionId(), AbortReason::LOCK_ON_SHRINKING);
@@ -103,7 +111,7 @@ auto LockManager::LockExclusive(Transaction *txn, const RID &rid) -> bool {
   if (txn->GetState() == TransactionState::ABORTED) {
     queue->request_queue_.remove_if([&](LockRequest r) { return r.txn_id_ == req.txn_id_; });
     queue->cv_.notify_all();
-    throw TransactionAbortException(txn->GetTransactionId(), AbortReason::DEADLOCK);
+    return false;
   }
   req.granted_ = true;
   txn->GetExclusiveLockSet()->emplace(rid);
@@ -111,9 +119,13 @@ auto LockManager::LockExclusive(Transaction *txn, const RID &rid) -> bool {
 }
 
 auto LockManager::LockUpgrade(Transaction *txn, const RID &rid) -> bool {
+  LOG_DEBUG("transaction %d LockUpgrade %s", txn->GetTransactionId(), rid.ToString().c_str());
   if (txn->GetState() == TransactionState::SHRINKING) {
     txn->SetState(TransactionState::ABORTED);
     throw TransactionAbortException(txn->GetTransactionId(), AbortReason::LOCK_ON_SHRINKING);
+  }
+  if (txn->IsExclusiveLocked(rid)) {
+    UNREACHABLE("duplicated lock");
   }
   std::unique_lock lk(latch_);
   LockRequestQueue *queue = &lock_table_[rid];
@@ -139,7 +151,7 @@ auto LockManager::LockUpgrade(Transaction *txn, const RID &rid) -> bool {
     if (queue->upgrading_ == txn->GetTransactionId()) {
       queue->upgrading_ = INVALID_TXN_ID;
     }
-    throw TransactionAbortException(txn->GetTransactionId(), AbortReason::DEADLOCK);
+    return false;
   }
   queue->upgrading_ = INVALID_TXN_ID;
   auto it = queue->request_queue_.begin();
@@ -153,7 +165,7 @@ auto LockManager::LockUpgrade(Transaction *txn, const RID &rid) -> bool {
 }
 
 auto LockManager::Unlock(Transaction *txn, const RID &rid) -> bool {
-  // LOG_DEBUG("transaction %d unlock", txn->GetTransactionId());
+  LOG_DEBUG("transaction %d Unlock %s", txn->GetTransactionId(), rid.ToString().c_str());
   std::lock_guard lk(latch_);
   LockRequestQueue *queue = &lock_table_[rid];
   auto it = queue->request_queue_.begin();
@@ -162,6 +174,7 @@ auto LockManager::Unlock(Transaction *txn, const RID &rid) -> bool {
       break;
     }
   }
+  assert(it != queue->request_queue_.end());
   if (txn->GetState() == TransactionState::GROWING) {
     // READ_COMMITTED may release shared-lock at growing state
     if (it->lock_mode_ == LockMode::EXCLUSIVE || txn->GetIsolationLevel() != IsolationLevel::READ_COMMITTED) {
