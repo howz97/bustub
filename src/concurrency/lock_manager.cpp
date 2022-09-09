@@ -45,6 +45,7 @@ auto LockManager::LockShared(Transaction *txn, const RID &rid) -> bool {
   }
 
   LockRequest &req = queue->request_queue_.emplace_back(txn->GetTransactionId(), LockMode::SHARED);
+  req.txn_ = txn;
   queue->cv_.wait(lk, [&] {
     if (txn->GetState() == TransactionState::ABORTED) {
       return true;
@@ -90,6 +91,7 @@ auto LockManager::LockExclusive(Transaction *txn, const RID &rid) -> bool {
   }
 
   LockRequest &req = queue->request_queue_.emplace_back(txn->GetTransactionId(), LockMode::EXCLUSIVE);
+  req.txn_ = txn;
   queue->cv_.wait(lk, [&] {
     if (txn->GetState() == TransactionState::ABORTED) {
       return true;
@@ -151,6 +153,7 @@ auto LockManager::LockUpgrade(Transaction *txn, const RID &rid) -> bool {
 }
 
 auto LockManager::Unlock(Transaction *txn, const RID &rid) -> bool {
+  // LOG_DEBUG("transaction %d unlock", txn->GetTransactionId());
   std::lock_guard lk(latch_);
   LockRequestQueue *queue = &lock_table_[rid];
   auto it = queue->request_queue_.begin();
@@ -168,6 +171,7 @@ auto LockManager::Unlock(Transaction *txn, const RID &rid) -> bool {
   queue->request_queue_.erase(it);
   if (queue->upgrading_ != INVALID_TXN_ID || !queue->IsLocked()) {
     queue->cv_.notify_all();
+    // LOG_DEBUG("transaction %d notify_all", txn->GetTransactionId());
   }
   txn->GetSharedLockSet()->erase(rid);
   txn->GetExclusiveLockSet()->erase(rid);
@@ -176,7 +180,7 @@ auto LockManager::Unlock(Transaction *txn, const RID &rid) -> bool {
 
 auto LockManager::LockRequestQueue::IsLocked() -> bool {
   auto begin = request_queue_.begin();
-  return begin != request_queue_.end() && !begin->granted_;
+  return begin != request_queue_.end() && begin->granted_;
 }
 
 }  // namespace bustub
