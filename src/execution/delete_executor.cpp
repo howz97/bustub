@@ -28,14 +28,28 @@ auto DeleteExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
   if (!child_executor_->Next(&tp, &r)) {
     return false;
   }
+  Transaction *txn = exec_ctx_->GetTransaction();
+  // acquire lock
+  bool locked = false;
+  if (txn->IsSharedLocked(r)) {
+    locked = exec_ctx_->GetLockManager()->LockUpgrade(txn, r);
+  } else if (txn->IsExclusiveLocked(r)) {
+    locked = true;
+  } else {
+    locked = exec_ctx_->GetLockManager()->LockExclusive(txn, r);
+  }
+  if (!locked) {
+    return false;
+  }
+
   TableInfo *table_info = exec_ctx_->GetCatalog()->GetTable(plan_->TableOid());
-  if (!table_info->table_->MarkDelete(r, exec_ctx_->GetTransaction())) {
+  if (!table_info->table_->MarkDelete(r, txn)) {
     return false;
   }
   for (IndexInfo *index : exec_ctx_->GetCatalog()->GetTableIndexes(table_info->name_)) {
     IndexMetadata *meta = index->index_->GetMetadata();
     Tuple key = tp.KeyFromTuple(table_info->schema_, *meta->GetKeySchema(), meta->GetKeyAttrs());
-    index->index_->DeleteEntry(key, r, exec_ctx_->GetTransaction());
+    index->index_->DeleteEntry(key, r, txn);
   }
   return true;
 }

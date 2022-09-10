@@ -31,16 +31,11 @@ auto SeqScanExecutor::Next(Tuple *tuple, RID *rid) -> bool {
     *rid = itr_->GetRid();
     Transaction *txn = exec_ctx_->GetTransaction();
     // acquire shared lock
-    bool locked = false;
-    if (txn->GetIsolationLevel() == IsolationLevel::REPEATABLE_READ) {
-      if (!txn->IsSharedLocked(*rid)) {
-        locked = exec_ctx_->GetLockManager()->LockShared(txn, *rid);
+    bool locked = (txn->IsSharedLocked(*rid) || txn->IsExclusiveLocked(*rid));
+    if (txn->GetIsolationLevel() != IsolationLevel::READ_UNCOMMITTED && !locked) {
+      if (!exec_ctx_->GetLockManager()->LockShared(txn, *rid)) {
+        return false;
       }
-    } else if (txn->GetIsolationLevel() == IsolationLevel::READ_COMMITTED) {
-      locked = exec_ctx_->GetLockManager()->LockShared(txn, *rid);
-    }
-    if (!locked) {
-      return false;
     }
 
     if (pred == nullptr || pred->Evaluate(tuple, &tbl_info->schema_).GetAs<bool>()) {
@@ -52,13 +47,13 @@ auto SeqScanExecutor::Next(Tuple *tuple, RID *rid) -> bool {
       *tuple = Tuple(out_vals, out_schema);
       ++itr_;
       // release lock
-      if (txn->GetIsolationLevel() == IsolationLevel::READ_COMMITTED) {
+      if (txn->GetIsolationLevel() == IsolationLevel::READ_COMMITTED && txn->IsSharedLocked(*rid)) {
         exec_ctx_->GetLockManager()->Unlock(txn, *rid);
       }
       return true;
     }
     // release lock
-    if (txn->GetIsolationLevel() == IsolationLevel::READ_COMMITTED) {
+    if (txn->GetIsolationLevel() == IsolationLevel::READ_COMMITTED && txn->IsSharedLocked(*rid)) {
       exec_ctx_->GetLockManager()->Unlock(txn, *rid);
     }
   }

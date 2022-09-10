@@ -65,6 +65,7 @@ class ExecutionEngine {
         }
       }
     } catch (Exception &e) {
+      LOG_DEBUG("Execute exception: %s", e.ExceptionTypeToString(e.GetType()).c_str());
       // TODO(student): handle exceptions
     }
 

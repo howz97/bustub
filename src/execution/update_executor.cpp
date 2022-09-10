@@ -40,6 +40,20 @@ auto UpdateExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
     return false;
   }
   Tuple new_tp = GenerateUpdatedTuple(old_tp);
+  Transaction *txn = exec_ctx_->GetTransaction();
+  // acquire lock
+  bool locked = false;
+  if (txn->IsSharedLocked(r)) {
+    locked = exec_ctx_->GetLockManager()->LockUpgrade(txn, r);
+  } else if (txn->IsExclusiveLocked(r)) {
+    locked = true;
+  } else {
+    locked = exec_ctx_->GetLockManager()->LockExclusive(txn, r);
+  }
+  if (!locked) {
+    return false;
+  }
+
   if (!table_info_->table_->UpdateTuple(new_tp, r, exec_ctx_->GetTransaction())) {
     return false;
   }
