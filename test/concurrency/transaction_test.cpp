@@ -29,6 +29,7 @@
 #include "execution/expressions/column_value_expression.h"
 #include "execution/expressions/comparison_expression.h"
 #include "execution/expressions/constant_value_expression.h"
+#include "execution/plans/delete_plan.h"
 #include "execution/plans/limit_plan.h"
 #include "execution/plans/nested_index_join_plan.h"
 #include "execution/plans/seq_scan_plan.h"
@@ -200,6 +201,80 @@ TEST_F(TransactionTest, SimpleInsertRollbackTest) {
 
   GetTxnManager()->Commit(txn2);
   delete txn2;
+}
+
+// NOLINTNEXTLINE
+TEST_F(TransactionTest, SimpleDeleteRollbackTest) {
+  auto txn1 = GetTxnManager()->Begin();
+  auto exec_ctx1 = std::make_unique<ExecutorContext>(txn1, GetCatalog(), GetBPM(), GetTxnManager(), GetLockManager());
+  // Create Values to insert
+  std::vector<Value> val1{ValueFactory::GetIntegerValue(200), ValueFactory::GetIntegerValue(20)};
+  std::vector<Value> val2{ValueFactory::GetIntegerValue(201), ValueFactory::GetIntegerValue(21)};
+  std::vector<Value> val3{ValueFactory::GetIntegerValue(202), ValueFactory::GetIntegerValue(22)};
+  std::vector<std::vector<Value>> raw_vals{val1, val2, val3};
+  // Create insert plan node
+  auto table_info = exec_ctx1->GetCatalog()->GetTable("empty_table2");
+  InsertPlanNode insert_plan{std::move(raw_vals), table_info->oid_};
+  GetExecutionEngine()->Execute(&insert_plan, nullptr, txn1, exec_ctx1.get());
+  GetTxnManager()->Commit(txn1);
+  delete txn1;
+
+  auto &schema = table_info->schema_;
+  auto col_a = MakeColumnValueExpression(schema, 0, "colA");
+  auto col_b = MakeColumnValueExpression(schema, 0, "colB");
+  auto out_schema = MakeOutputSchema({{"colA", col_a}, {"colB", col_b}});
+  {
+    auto const200 = MakeConstantValueExpression(ValueFactory::GetIntegerValue(200));
+    auto predicate = MakeComparisonExpression(col_a, const200, ComparisonType::Equal);
+    auto scan_child = std::make_unique<SeqScanPlanNode>(out_schema, predicate, table_info->oid_);
+    auto txn5 = GetTxnManager()->Begin();
+    auto exec_ctx5 = std::make_unique<ExecutorContext>(txn5, GetCatalog(), GetBPM(), GetTxnManager(), GetLockManager());
+    DeletePlanNode del_plan(scan_child.get(), table_info->oid_);
+    GetExecutionEngine()->Execute(&del_plan, nullptr, txn5, exec_ctx5.get());
+    GetTxnManager()->Commit(txn5);
+    delete txn5;
+  }
+
+  // Iterate through table make sure that values were inserted.
+  auto txn2 = GetTxnManager()->Begin();
+  auto exec_ctx2 = std::make_unique<ExecutorContext>(txn2, GetCatalog(), GetBPM(), GetTxnManager(), GetLockManager());
+  SeqScanPlanNode scan_plan{out_schema, nullptr, table_info->oid_};
+  // check result
+  std::vector<Tuple> result_set;
+  GetExecutionEngine()->Execute(&scan_plan, &result_set, txn2, exec_ctx2.get());
+  GetTxnManager()->Commit(txn2);
+  delete txn2;
+  // Second value
+  ASSERT_EQ(result_set[0].GetValue(out_schema, out_schema->GetColIdx("colA")).GetAs<int32_t>(), 201);
+  ASSERT_EQ(result_set[0].GetValue(out_schema, out_schema->GetColIdx("colB")).GetAs<int32_t>(), 21);
+  // Third value
+  ASSERT_EQ(result_set[1].GetValue(out_schema, out_schema->GetColIdx("colA")).GetAs<int32_t>(), 202);
+  ASSERT_EQ(result_set[1].GetValue(out_schema, out_schema->GetColIdx("colB")).GetAs<int32_t>(), 22);
+  ASSERT_EQ(result_set.size(), 2);
+
+  auto const201 = MakeConstantValueExpression(ValueFactory::GetIntegerValue(201));
+  auto predicate = MakeComparisonExpression(col_a, const201, ComparisonType::Equal);
+  auto scan_child = std::make_unique<SeqScanPlanNode>(out_schema, predicate, table_info->oid_);
+  auto txn3 = GetTxnManager()->Begin();
+  auto exec_ctx3 = std::make_unique<ExecutorContext>(txn3, GetCatalog(), GetBPM(), GetTxnManager(), GetLockManager());
+  DeletePlanNode del_plan(scan_child.get(), table_info->oid_);
+  GetExecutionEngine()->Execute(&del_plan, nullptr, txn3, exec_ctx3.get());
+  GetTxnManager()->Abort(txn3);
+  delete txn3;
+
+  auto txn4 = GetTxnManager()->Begin();
+  auto exec_ctx4 = std::make_unique<ExecutorContext>(txn4, GetCatalog(), GetBPM(), GetTxnManager(), GetLockManager());
+  result_set.clear();
+  GetExecutionEngine()->Execute(&scan_plan, &result_set, txn4, exec_ctx4.get());
+  GetTxnManager()->Commit(txn4);
+  delete txn4;
+  // Second value
+  ASSERT_EQ(result_set[0].GetValue(out_schema, out_schema->GetColIdx("colA")).GetAs<int32_t>(), 201);
+  ASSERT_EQ(result_set[0].GetValue(out_schema, out_schema->GetColIdx("colB")).GetAs<int32_t>(), 21);
+  // Third value
+  ASSERT_EQ(result_set[1].GetValue(out_schema, out_schema->GetColIdx("colA")).GetAs<int32_t>(), 202);
+  ASSERT_EQ(result_set[1].GetValue(out_schema, out_schema->GetColIdx("colB")).GetAs<int32_t>(), 22);
+  ASSERT_EQ(result_set.size(), 2);
 }
 
 // NOLINTNEXTLINE
