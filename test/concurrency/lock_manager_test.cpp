@@ -176,7 +176,6 @@ TEST(LockManagerTest, BasicTest3) {
           return;
         }
       }
-      CheckGrowing(txn);
     }
     txn_mgr.Commit(txn);
     CheckCommitted(txn);
