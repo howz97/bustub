@@ -29,7 +29,8 @@ auto LockManager::LockShared(Transaction *txn, const RID &rid) -> bool {
   if (txn->GetState() == TransactionState::SHRINKING) {
     txn->SetState(TransactionState::ABORTED);
     throw TransactionAbortException(txn->GetTransactionId(), AbortReason::LOCK_ON_SHRINKING);
-  } else if (txn->GetState() == TransactionState::ABORTED) {
+  }
+  if (txn->GetState() == TransactionState::ABORTED) {
     return false;
   }
   std::unique_lock lk(latch_);
@@ -99,7 +100,8 @@ auto LockManager::LockExclusive(Transaction *txn, const RID &rid) -> bool {
   if (txn->GetState() == TransactionState::SHRINKING) {
     txn->SetState(TransactionState::ABORTED);
     throw TransactionAbortException(txn->GetTransactionId(), AbortReason::LOCK_ON_SHRINKING);
-  } else if (txn->GetState() == TransactionState::ABORTED) {
+  }
+  if (txn->GetState() == TransactionState::ABORTED) {
     return false;
   }
   std::unique_lock lk(latch_);
@@ -134,10 +136,9 @@ auto LockManager::LockExclusive(Transaction *txn, const RID &rid) -> bool {
     assert(begin != queue->request_queue_.end());
     if (begin->txn_id_ == txn->GetTransactionId()) {
       return true;
-    } else {
-      blocking_[txn->GetTransactionId()] = rid;
-      return false;
     }
+    blocking_[txn->GetTransactionId()] = rid;
+    return false;
   });
   blocking_.erase(txn->GetTransactionId());
   if (txn->GetState() == TransactionState::ABORTED) {
