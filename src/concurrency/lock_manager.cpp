@@ -119,7 +119,8 @@ auto LockManager::LockExclusive(Transaction *txn, const RID &rid) -> bool {
       if (!it->granted_) {
         it = queue->request_queue_.erase(it);
         continue;
-      } else if (it->txn_id_ == queue->upgrading_) {
+      }
+      if (it->txn_id_ == queue->upgrading_) {
         queue->upgrading_ = INVALID_TXN_ID;
       }
     }
@@ -156,7 +157,8 @@ auto LockManager::LockUpgrade(Transaction *txn, const RID &rid) -> bool {
   if (txn->GetState() == TransactionState::SHRINKING) {
     txn->SetState(TransactionState::ABORTED);
     throw TransactionAbortException(txn->GetTransactionId(), AbortReason::LOCK_ON_SHRINKING);
-  } else if (txn->GetState() == TransactionState::ABORTED) {
+  }
+  if (txn->GetState() == TransactionState::ABORTED) {
     return false;
   }
   if (txn->IsExclusiveLocked(rid)) {
