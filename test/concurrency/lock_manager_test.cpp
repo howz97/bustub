@@ -79,6 +79,126 @@ void BasicTest1() {
 }
 TEST(LockManagerTest, BasicTest) { BasicTest1(); }
 
+TEST(LockManagerTest, BasicTest2) {
+  LockManager lock_mgr{};
+  TransactionManager txn_mgr{&lock_mgr};
+
+  std::vector<RID> rids;
+  std::vector<Transaction *> txns;
+  int num_rids = 100;
+  for (int i = 0; i < num_rids; i++) {
+    RID rid{i, static_cast<uint32_t>(i)};
+    rids.push_back(rid);
+    txns.push_back(txn_mgr.Begin());
+    EXPECT_EQ(i, txns[i]->GetTransactionId());
+  }
+  // test
+
+  auto task = [&](int txn_id) {
+    Transaction *txn = txns[txn_id];
+    bool res;
+    for (const RID &rid : rids) {
+      res = lock_mgr.LockExclusive(txns[txn_id], rid);
+      if (!res) {
+        txn_mgr.Abort(txn);
+        return;
+      }
+      CheckGrowing(txns[txn_id]);
+    }
+    for (const RID &rid : rids) {
+      res = lock_mgr.Unlock(txns[txn_id], rid);
+      EXPECT_TRUE(res);
+      CheckShrinking(txns[txn_id]);
+    }
+    txn_mgr.Commit(txns[txn_id]);
+    CheckCommitted(txns[txn_id]);
+  };
+  std::vector<std::thread> threads;
+  threads.reserve(num_rids);
+
+  for (int i = 0; i < num_rids; i++) {
+    threads.emplace_back(std::thread{task, i});
+  }
+
+  for (int i = 0; i < num_rids; i++) {
+    threads[i].join();
+  }
+
+  for (int i = 0; i < num_rids; i++) {
+    delete txns[i];
+  }
+}
+
+TEST(LockManagerTest, BasicTest3) {
+  LockManager lock_mgr{};
+  TransactionManager txn_mgr{&lock_mgr};
+
+  std::vector<RID> rids;
+  std::vector<Transaction *> txns;
+  const int num_rids = 100;
+  for (int i = 0; i < num_rids; i++) {
+    RID rid{i, static_cast<uint32_t>(i)};
+    rids.push_back(rid);
+    txns.push_back(txn_mgr.Begin());
+    EXPECT_EQ(i, txns[i]->GetTransactionId());
+  }
+  // test
+
+  auto task = [&](int txn_id) {
+    Transaction *txn = txns[txn_id];
+    // acquire random locks
+    int nlocks = num_rids / 10;
+    for (int i = 0; i < nlocks; ++i) {
+      const RID &rid = rids[rand() % num_rids];
+      if (txn->IsExclusiveLocked(rid)) {
+        continue;
+      }
+      if ((i & 1) == 0) {
+        if (txn->IsSharedLocked(rid)) {
+          continue;
+        }
+        bool ok = lock_mgr.LockShared(txn, rid);
+        if (!ok) {
+          txn_mgr.Abort(txn);
+          LOG_DEBUG("transaction %d aborted", txn_id);
+          return;
+        }
+      } else {
+        bool ok = false;
+        if (txn->IsSharedLocked(rid)) {
+          ok = lock_mgr.LockUpgrade(txn, rid);
+        } else {
+          ok = lock_mgr.LockExclusive(txn, rid);
+        }
+        if (!ok) {
+          txn_mgr.Abort(txn);
+          LOG_DEBUG("transaction %d aborted", txn_id);
+          return;
+        }
+      }
+      CheckGrowing(txn);
+    }
+    txn_mgr.Commit(txn);
+    CheckCommitted(txn);
+    LOG_DEBUG("transaction %d commited", txn_id);
+  };
+
+  std::vector<std::thread> threads;
+  threads.reserve(num_rids);
+
+  for (int i = 0; i < num_rids; i++) {
+    threads.emplace_back(std::thread{task, i});
+  }
+
+  for (int i = 0; i < num_rids; i++) {
+    threads[i].join();
+  }
+
+  for (int i = 0; i < num_rids; i++) {
+    delete txns[i];
+  }
+}
+
 void TwoPLTest() {
   LockManager lock_mgr{};
   TransactionManager txn_mgr{&lock_mgr};

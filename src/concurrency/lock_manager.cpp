@@ -29,23 +29,38 @@ auto LockManager::LockShared(Transaction *txn, const RID &rid) -> bool {
   if (txn->GetState() == TransactionState::SHRINKING) {
     txn->SetState(TransactionState::ABORTED);
     throw TransactionAbortException(txn->GetTransactionId(), AbortReason::LOCK_ON_SHRINKING);
+  } else if (txn->GetState() == TransactionState::ABORTED) {
+    return false;
   }
   std::unique_lock lk(latch_);
   LockRequestQueue *queue = &lock_table_[rid];
   // wound younger transactions
-  for (auto it = queue->request_queue_.begin(); it != queue->request_queue_.end(); ++it) {
-    if (it->txn_id_ > txn->GetTransactionId()) {
+  for (auto it = queue->request_queue_.begin(); it != queue->request_queue_.end();) {
+    if (it->txn_id_ > txn->GetTransactionId() && it->txn_->GetState() == TransactionState::GROWING) {
       if (it->lock_mode_ == LockMode::EXCLUSIVE) {
+        LOG_DEBUG("transaction %d wound %d because conflict on %s", txn->GetTransactionId(), it->txn_id_,
+                  rid.ToString().c_str());
         it->txn_->SetState(TransactionState::ABORTED);
+        auto blk = blocking_.find(it->txn_id_);
+        if (blk != blocking_.end()) {
+          lock_table_[blk->second].cv_.notify_all();
+        }
         if (!it->granted_) {
-          // TODO(zhanghao): maybe notify_all ?
-          queue->request_queue_.erase(it);
+          it = queue->request_queue_.erase(it);
+          continue;
         }
       } else if (it->txn_id_ == queue->upgrading_) {
+        LOG_DEBUG("transaction %d wound %d because conflict on %s", txn->GetTransactionId(), it->txn_id_,
+                  rid.ToString().c_str());
         it->txn_->SetState(TransactionState::ABORTED);
         queue->upgrading_ = INVALID_TXN_ID;
+        auto blk = blocking_.find(it->txn_id_);
+        if (blk != blocking_.end()) {
+          lock_table_[blk->second].cv_.notify_all();
+        }
       }
     }
+    ++it;
   }
 
   LockRequest &req = queue->request_queue_.emplace_back(txn->GetTransactionId(), LockMode::SHARED);
@@ -59,13 +74,15 @@ auto LockManager::LockShared(Transaction *txn, const RID &rid) -> bool {
         return true;
       }
       if (r.lock_mode_ == LockMode::EXCLUSIVE) {
+        blocking_[txn->GetTransactionId()] = rid;
         return false;
       }
     }
     UNREACHABLE("request_queue_ must contains this request");
   });
+  blocking_.erase(txn->GetTransactionId());
   if (txn->GetState() == TransactionState::ABORTED) {
-    queue->request_queue_.remove_if([&](LockRequest r) { return r.txn_id_ == req.txn_id_; });
+    queue->request_queue_.remove_if([&](LockRequest r) { return r.txn_id_ == txn->GetTransactionId(); });
     queue->cv_.notify_all();
     return false;
   }
@@ -82,20 +99,29 @@ auto LockManager::LockExclusive(Transaction *txn, const RID &rid) -> bool {
   if (txn->GetState() == TransactionState::SHRINKING) {
     txn->SetState(TransactionState::ABORTED);
     throw TransactionAbortException(txn->GetTransactionId(), AbortReason::LOCK_ON_SHRINKING);
+  } else if (txn->GetState() == TransactionState::ABORTED) {
+    return false;
   }
   std::unique_lock lk(latch_);
   LockRequestQueue *queue = &lock_table_[rid];
   // wound younger transactions
-  for (auto it = queue->request_queue_.begin(); it != queue->request_queue_.end(); ++it) {
-    if (it->txn_id_ > txn->GetTransactionId()) {
+  for (auto it = queue->request_queue_.begin(); it != queue->request_queue_.end();) {
+    if (it->txn_id_ > txn->GetTransactionId() && it->txn_->GetState() == TransactionState::GROWING) {
+      LOG_DEBUG("transaction %d wound %d because conflict on %s", txn->GetTransactionId(), it->txn_id_,
+                rid.ToString().c_str());
       it->txn_->SetState(TransactionState::ABORTED);
-      if (!it->granted_) {
-        queue->request_queue_.erase(it);
+      auto blk = blocking_.find(it->txn_id_);
+      if (blk != blocking_.end()) {
+        lock_table_[blk->second].cv_.notify_all();
       }
-      if (it->txn_id_ == queue->upgrading_) {
+      if (!it->granted_) {
+        it = queue->request_queue_.erase(it);
+        continue;
+      } else if (it->txn_id_ == queue->upgrading_) {
         queue->upgrading_ = INVALID_TXN_ID;
       }
     }
+    ++it;
   }
 
   LockRequest &req = queue->request_queue_.emplace_back(txn->GetTransactionId(), LockMode::EXCLUSIVE);
@@ -106,10 +132,16 @@ auto LockManager::LockExclusive(Transaction *txn, const RID &rid) -> bool {
     }
     auto begin = queue->request_queue_.begin();
     assert(begin != queue->request_queue_.end());
-    return begin->txn_id_ == txn->GetTransactionId();
+    if (begin->txn_id_ == txn->GetTransactionId()) {
+      return true;
+    } else {
+      blocking_[txn->GetTransactionId()] = rid;
+      return false;
+    }
   });
+  blocking_.erase(txn->GetTransactionId());
   if (txn->GetState() == TransactionState::ABORTED) {
-    queue->request_queue_.remove_if([&](LockRequest r) { return r.txn_id_ == req.txn_id_; });
+    queue->request_queue_.remove_if([&](LockRequest r) { return r.txn_id_ == txn->GetTransactionId(); });
     queue->cv_.notify_all();
     return false;
   }
@@ -123,6 +155,8 @@ auto LockManager::LockUpgrade(Transaction *txn, const RID &rid) -> bool {
   if (txn->GetState() == TransactionState::SHRINKING) {
     txn->SetState(TransactionState::ABORTED);
     throw TransactionAbortException(txn->GetTransactionId(), AbortReason::LOCK_ON_SHRINKING);
+  } else if (txn->GetState() == TransactionState::ABORTED) {
+    return false;
   }
   if (txn->IsExclusiveLocked(rid)) {
     UNREACHABLE("duplicated lock");
@@ -131,6 +165,19 @@ auto LockManager::LockUpgrade(Transaction *txn, const RID &rid) -> bool {
   LockRequestQueue *queue = &lock_table_[rid];
   if (queue->upgrading_ != INVALID_TXN_ID) {
     throw TransactionAbortException(txn->GetTransactionId(), AbortReason::UPGRADE_CONFLICT);
+  }
+  // wound younger transactions
+  for (auto it = queue->request_queue_.begin(); it != queue->request_queue_.end() && it->granted_;) {
+    if (it->txn_id_ > txn->GetTransactionId() && it->txn_->GetState() == TransactionState::GROWING) {
+      LOG_DEBUG("transaction %d wound %d because conflict on %s", txn->GetTransactionId(), it->txn_id_,
+                rid.ToString().c_str());
+      it->txn_->SetState(TransactionState::ABORTED);
+      auto blk = blocking_.find(it->txn_id_);
+      if (blk != blocking_.end()) {
+        lock_table_[blk->second].cv_.notify_all();
+      }
+    }
+    ++it;
   }
   queue->upgrading_ = txn->GetTransactionId();
   queue->cv_.wait(lk, [&] {
@@ -142,11 +189,13 @@ auto LockManager::LockUpgrade(Transaction *txn, const RID &rid) -> bool {
         break;
       }
       if (r.txn_id_ != txn->GetTransactionId()) {
+        blocking_[txn->GetTransactionId()] = rid;
         return false;
       }
     }
     return true;
   });
+  blocking_.erase(txn->GetTransactionId());
   if (txn->GetState() == TransactionState::ABORTED) {
     if (queue->upgrading_ == txn->GetTransactionId()) {
       queue->upgrading_ = INVALID_TXN_ID;
