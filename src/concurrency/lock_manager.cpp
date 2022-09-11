@@ -70,7 +70,7 @@ auto LockManager::LockShared(Transaction *txn, const RID &rid) -> bool {
     if (txn->GetState() == TransactionState::ABORTED) {
       return true;
     }
-    for (auto r : queue->request_queue_) {
+    for (auto &r : queue->request_queue_) {
       if (r.txn_id_ == txn->GetTransactionId()) {
         return true;
       }
@@ -153,10 +153,11 @@ auto LockManager::LockExclusive(Transaction *txn, const RID &rid) -> bool {
 }
 
 auto LockManager::LockUpgrade(Transaction *txn, const RID &rid) -> bool {
-  LOG_DEBUG("transaction %d LockUpgrade %s", txn->GetTransactionId(), rid.ToString().c_str());
+  txn_id_t txn_id = txn->GetTransactionId();
+  LOG_DEBUG("transaction %d LockUpgrade %s", txn_id, rid.ToString().c_str());
   if (txn->GetState() == TransactionState::SHRINKING) {
     txn->SetState(TransactionState::ABORTED);
-    throw TransactionAbortException(txn->GetTransactionId(), AbortReason::LOCK_ON_SHRINKING);
+    throw TransactionAbortException(txn_id, AbortReason::LOCK_ON_SHRINKING);
   }
   if (txn->GetState() == TransactionState::ABORTED) {
     return false;
@@ -167,13 +168,12 @@ auto LockManager::LockUpgrade(Transaction *txn, const RID &rid) -> bool {
   std::unique_lock lk(latch_);
   LockRequestQueue *queue = &lock_table_[rid];
   if (queue->upgrading_ != INVALID_TXN_ID) {
-    throw TransactionAbortException(txn->GetTransactionId(), AbortReason::UPGRADE_CONFLICT);
+    throw TransactionAbortException(txn_id, AbortReason::UPGRADE_CONFLICT);
   }
   // wound younger transactions
   for (auto it = queue->request_queue_.begin(); it != queue->request_queue_.end() && it->granted_;) {
-    if (it->txn_id_ > txn->GetTransactionId() && it->txn_->GetState() == TransactionState::GROWING) {
-      LOG_DEBUG("transaction %d wound %d because conflict on %s", txn->GetTransactionId(), it->txn_id_,
-                rid.ToString().c_str());
+    if (it->txn_id_ > txn_id && it->txn_->GetState() == TransactionState::GROWING) {
+      LOG_DEBUG("transaction %d wound %d because conflict on %s", txn_id, it->txn_id_, rid.ToString().c_str());
       it->txn_->SetState(TransactionState::ABORTED);
       auto blk = blocking_.find(it->txn_id_);
       if (blk != blocking_.end()) {
@@ -182,25 +182,25 @@ auto LockManager::LockUpgrade(Transaction *txn, const RID &rid) -> bool {
     }
     ++it;
   }
-  queue->upgrading_ = txn->GetTransactionId();
+  queue->upgrading_ = txn_id;
   queue->cv_.wait(lk, [&] {
     if (txn->GetState() == TransactionState::ABORTED) {
       return true;
     }
-    for (auto r : queue->request_queue_) {
+    for (auto &r : queue->request_queue_) {
       if (!r.granted_) {
         break;
       }
-      if (r.txn_id_ != txn->GetTransactionId()) {
-        blocking_[txn->GetTransactionId()] = rid;
+      if (r.txn_id_ != txn_id) {
+        blocking_[txn_id] = rid;
         return false;
       }
     }
     return true;
   });
-  blocking_.erase(txn->GetTransactionId());
+  blocking_.erase(txn_id);
   if (txn->GetState() == TransactionState::ABORTED) {
-    if (queue->upgrading_ == txn->GetTransactionId()) {
+    if (queue->upgrading_ == txn_id) {
       queue->upgrading_ = INVALID_TXN_ID;
     }
     return false;
@@ -208,7 +208,17 @@ auto LockManager::LockUpgrade(Transaction *txn, const RID &rid) -> bool {
   queue->upgrading_ = INVALID_TXN_ID;
   auto it = queue->request_queue_.begin();
   assert(it != queue->request_queue_.end());
-  assert(it->txn_id_ == txn->GetTransactionId());
+  if (it->txn_id_ != txn_id) {
+    LOG_DEBUG("it->txn_id_(%d) != txn_id(%d)", it->txn_id_, txn_id);
+    for (auto &r : queue->request_queue_) {
+      if (!r.granted_) {
+        break;
+      }
+      std::cout << " txn" << it->txn_id_ << "-" << (it->lock_mode_ == LockMode::EXCLUSIVE);
+    }
+    std::cout << std::endl;
+  }
+  assert(it->txn_id_ == txn_id);
   assert(it->lock_mode_ == LockMode::SHARED);
   it->lock_mode_ = LockMode::EXCLUSIVE;
   txn->GetSharedLockSet()->erase(rid);

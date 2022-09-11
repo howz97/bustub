@@ -64,9 +64,9 @@ class ExecutionEngine {
           result_set->push_back(tuple);
         }
       }
-    } catch (Exception &e) {
-      LOG_DEBUG("Execute exception: %s", e.ExceptionTypeToString(e.GetType()).c_str());
-      // TODO(student): handle exceptions
+    } catch (TransactionAbortException &e) {
+      std::cerr << e.GetInfo() << std::endl;
+      return false;
     }
 
     return true;

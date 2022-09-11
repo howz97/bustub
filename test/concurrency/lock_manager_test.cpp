@@ -77,9 +77,9 @@ void BasicTest1() {
     delete txns[i];
   }
 }
-TEST(LockManagerTest, BasicTest) { BasicTest1(); }
+TEST(LockManagerTest, DISABLED_BasicTest) { BasicTest1(); }
 
-TEST(LockManagerTest, BasicTest2) {
+TEST(LockManagerTest, DISABLED_BasicTest2) {
   LockManager lock_mgr{};
   TransactionManager txn_mgr{&lock_mgr};
 
@@ -147,7 +147,7 @@ TEST(LockManagerTest, BasicTest3) {
   auto task = [&](int txn_id) {
     Transaction *txn = txns[txn_id];
     // acquire random locks
-    int nlocks = num_rids / 10;
+    int nlocks = num_rids / 4;
     for (int i = 0; i < nlocks; ++i) {
       const RID &rid = rids[rand() % num_rids];
       if (txn->IsExclusiveLocked(rid)) {
@@ -178,7 +178,6 @@ TEST(LockManagerTest, BasicTest3) {
       }
     }
     txn_mgr.Commit(txn);
-    CheckCommitted(txn);
     LOG_DEBUG("transaction %d commited", txn_id);
   };
 
@@ -242,7 +241,7 @@ void TwoPLTest() {
 
   delete txn;
 }
-TEST(LockManagerTest, TwoPLTest) { TwoPLTest(); }
+TEST(LockManagerTest, DISABLED_TwoPLTest) { TwoPLTest(); }
 
 void UpgradeTest() {
   LockManager lock_mgr{};
@@ -269,7 +268,7 @@ void UpgradeTest() {
   txn_mgr.Commit(&txn);
   CheckCommitted(&txn);
 }
-TEST(LockManagerTest, UpgradeLockTest) { UpgradeTest(); }
+TEST(LockManagerTest, DISABLED_UpgradeLockTest) { UpgradeTest(); }
 
 void WoundWaitBasicTest() {
   LockManager lock_mgr{};
@@ -321,6 +320,6 @@ void WoundWaitBasicTest() {
   txn_mgr.Commit(&txn_hold);
   CheckCommitted(&txn_hold);
 }
-TEST(LockManagerTest, WoundWaitBasicTest) { WoundWaitBasicTest(); }
+TEST(LockManagerTest, DISABLED_WoundWaitBasicTest) { WoundWaitBasicTest(); }
 
 }  // namespace bustub
