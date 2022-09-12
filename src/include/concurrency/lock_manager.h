@@ -17,6 +17,7 @@
 #include <list>
 #include <memory>
 #include <mutex>  // NOLINT
+#include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -38,7 +39,7 @@ class LockManager {
   class LockRequest {
    public:
     LockRequest(txn_id_t txn_id, LockMode lock_mode) : txn_id_(txn_id), lock_mode_(lock_mode) {}
-
+    auto ToString() -> std::string;
     txn_id_t txn_id_;
     LockMode lock_mode_;
     bool granted_{false};
@@ -48,6 +49,8 @@ class LockManager {
   class LockRequestQueue {
    public:
     auto IsLocked() -> bool;
+    void Grant(txn_id_t txn_id);
+    auto ToString() -> std::string;
     std::list<LockRequest> request_queue_;
     // for notifying blocked transactions on this rid
     std::condition_variable cv_;
