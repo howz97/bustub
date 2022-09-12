@@ -104,11 +104,11 @@ auto LockManager::LockExclusive(Transaction *txn, const RID &rid) -> bool {
   std::unique_lock lk(latch_);
   LockRequestQueue *queue = &lock_table_[rid];
   // wound younger transactions
-  for (auto it = queue->request_queue_.begin(); it != queue->request_queue_.end(); ++it) {
-    if (it->txn_id_ > txn_id && it->txn_->GetState() == TransactionState::GROWING) {
+  for (auto &req : queue->request_queue_) {
+    if (req.txn_id_ > txn_id && req.txn_->GetState() == TransactionState::GROWING) {
       // LOG_DEBUG("transaction %d wound %d because conflict on %s", txn_id, it->txn_id_, rid.ToString().c_str());
-      it->txn_->SetState(TransactionState::ABORTED);
-      auto blk = blocking_.find(it->txn_id_);
+      req.txn_->SetState(TransactionState::ABORTED);
+      auto blk = blocking_.find(req.txn_id_);
       if (blk != blocking_.end()) {
         lock_table_[blk->second].cv_.notify_all();
       }
@@ -163,16 +163,18 @@ auto LockManager::LockUpgrade(Transaction *txn, const RID &rid) -> bool {
     throw TransactionAbortException(txn_id, AbortReason::UPGRADE_CONFLICT);
   }
   // wound younger transactions
-  for (auto it = queue->request_queue_.begin(); it != queue->request_queue_.end() && it->lock_mode_ == LockMode::SHARED;
-       ++it) {
-    if (it->txn_id_ > txn_id && it->txn_->GetState() == TransactionState::GROWING && it->granted_) {
+  for (auto &req : queue->request_queue_) {
+    if (req.lock_mode_ != LockMode::SHARED) {
+      break;
+    }
+    if (req.txn_id_ > txn_id && req.txn_->GetState() == TransactionState::GROWING && req.granted_) {
       // LOG_DEBUG("transaction %d wound %d because conflict on %s", txn_id, it->txn_id_, rid.ToString().c_str());
-      it->txn_->SetState(TransactionState::ABORTED);
-      auto blk = blocking_.find(it->txn_id_);
+      req.txn_->SetState(TransactionState::ABORTED);
+      auto blk = blocking_.find(req.txn_id_);
       if (blk != blocking_.end()) {
         lock_table_[blk->second].cv_.notify_all();
       }
-    } else if (it->txn_id_ == txn_id) {
+    } else if (req.txn_id_ == txn_id) {
       // consider this situation:
       //   request_queue_: (txn4,ungranted) (txn2,granted) (txn1,granted) (txn3,granted)
       // txn2 try to upgrade lock, and we have to abort txn3.
@@ -180,7 +182,7 @@ auto LockManager::LockUpgrade(Transaction *txn, const RID &rid) -> bool {
       //   request_queue_: (txn2,granted) (txn4,ungranted) (txn1,granted)
       // Then things will occur: txn1.unlock -> txn2.upgrade ->txn2.unlock -> txn4.sharedLock
       auto head = queue->request_queue_.begin();
-      std::swap(*head, *it);
+      std::swap(*head, req);
     }
   }
 
@@ -191,7 +193,10 @@ auto LockManager::LockUpgrade(Transaction *txn, const RID &rid) -> bool {
     }
     auto it = queue->request_queue_.begin();
     assert(it->txn_id_ == txn_id);
-    for (++it; it != queue->request_queue_.end() && it->lock_mode_ == LockMode::SHARED; ++it) {
+    for (++it; it != queue->request_queue_.end(); ++it) {
+      if (it->lock_mode_ != LockMode::SHARED) {
+        break;
+      }
       if (it->granted_) {
         blocking_[txn_id] = rid;
         return false;
