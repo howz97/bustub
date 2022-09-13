@@ -151,4 +151,63 @@ TEST(ParallelBufferPoolManagerTest, SampleTest) {
   delete disk_manager;
 }
 
+TEST(ParallelBufferPoolManagerTest, RoundRobinNewPage) {
+  auto *disk_manager = new DiskManager("test.db");
+  auto pool_size = 1;
+  auto num_instances = 10;
+
+  auto *bpm = new ParallelBufferPoolManager(num_instances, pool_size, disk_manager);
+
+  page_id_t page_id_temp;
+
+  // Scenario: We should be able to create new pages until we fill up all BPMIs.
+  for (size_t i = 0; i < 10; i++) {
+    EXPECT_NE(nullptr, bpm->NewPage(&page_id_temp));
+    EXPECT_EQ(i, page_id_temp);
+  }
+
+  // Scenario: Once the buffer pool is full, we should not be able to create any new pages.
+  for (size_t i = 10; i < 30; i++) {
+    EXPECT_EQ(nullptr, bpm->NewPage(&page_id_temp));
+  }
+
+  // Scenario: The BPMI to start at should have looped around to 0. Unpin in BPMI 6, and see that it
+  // returns the correct page_id for that BPMI.
+  page_id_t unpin_page = 6;
+  bpm->UnpinPage(unpin_page, false);
+
+  EXPECT_NE(nullptr, bpm->NewPage(&page_id_temp));
+  EXPECT_EQ(unpin_page + num_instances, page_id_temp);
+
+  // Scenario: The BPMI to start at should be 7. Unpin in BPMI 6 and BPMI 7, and see that it
+  // returns the correct page_id for that BPMI.
+  unpin_page = 6;
+  bpm->UnpinPage(unpin_page, false);
+  unpin_page = 7;
+  bpm->UnpinPage(unpin_page, false);
+
+  EXPECT_NE(nullptr, bpm->NewPage(&page_id_temp));
+  EXPECT_EQ(unpin_page + num_instances, page_id_temp);
+
+  // Scenario: The BPMI to start at should be 8. Everything is pinned. Allocating should fail.
+  EXPECT_EQ(nullptr, bpm->NewPage(&page_id_temp));  // advance to 9 after looping
+  EXPECT_EQ(nullptr, bpm->NewPage(&page_id_temp));  // advance to 0 after looping
+
+  // Scenario. The BPMI to start at should be 0. Unpin a couple, we should get a page in BPMI 1.
+  unpin_page = 3;
+  bpm->UnpinPage(unpin_page, false);
+  unpin_page = 1;
+  bpm->UnpinPage(unpin_page, false);
+
+  EXPECT_NE(nullptr, bpm->NewPage(&page_id_temp));
+  EXPECT_EQ(unpin_page + num_instances, page_id_temp);
+
+  // Shutdown the disk manager and remove the temporary file we created.
+  disk_manager->ShutDown();
+  remove("test.db");
+
+  delete bpm;
+  delete disk_manager;
+}
+
 }  // namespace bustub

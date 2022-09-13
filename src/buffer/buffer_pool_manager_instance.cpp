@@ -174,10 +174,17 @@ auto BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) -> bool {
 
 auto BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) -> bool {
   std::lock_guard<std::mutex> guard(latch_);
-  frame_id_t frame_id = page_table_.find(page_id)->second;
+  auto it = page_table_.find(page_id);
+  if (it == page_table_.end()) {
+    return false;
+  }
+  frame_id_t frame_id = it->second;
   Page *page = &pages_[frame_id];
   if (is_dirty) {
     page->is_dirty_ = true;
+  }
+  if (page->pin_count_ <= 0) {
+    return false;
   }
   page->pin_count_ -= 1;
   if (page->GetPinCount() == 0) {
