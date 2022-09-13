@@ -49,6 +49,8 @@ auto DeleteExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
   for (IndexInfo *index : exec_ctx_->GetCatalog()->GetTableIndexes(table_info->name_)) {
     IndexMetadata *meta = index->index_->GetMetadata();
     Tuple key = tp.KeyFromTuple(table_info->schema_, *meta->GetKeySchema(), meta->GetKeyAttrs());
+    txn->GetIndexWriteSet()->emplace_back(r, table_info->oid_, WType::DELETE, tp, index->index_oid_,
+                                          exec_ctx_->GetCatalog());
     index->index_->DeleteEntry(key, r, txn);
   }
   return true;

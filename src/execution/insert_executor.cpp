@@ -52,8 +52,8 @@ auto InsertExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
   for (IndexInfo *index : exec_ctx_->GetCatalog()->GetTableIndexes(tbl_info->name_)) {
     IndexMetadata *meta = index->index_->GetMetadata();
     Tuple key = tup.KeyFromTuple(tbl_info->schema_, *meta->GetKeySchema(), meta->GetKeyAttrs());
-    // txn->GetIndexWriteSet()->emplace_back(rid_ins, tbl_info->oid_, WType::INSERT, tup, Tuple{}, index->index_oid_,
-    //                                       exec_ctx_->GetCatalog());
+    txn->GetIndexWriteSet()->emplace_back(rid_ins, tbl_info->oid_, WType::INSERT, tup, index->index_oid_,
+                                          exec_ctx_->GetCatalog());
     index->index_->InsertEntry(key, rid_ins, exec_ctx_->GetTransaction());
   }
   return true;
