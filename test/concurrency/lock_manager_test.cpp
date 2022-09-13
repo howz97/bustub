@@ -79,9 +79,9 @@ void BasicTest1() {
     delete txns[i];
   }
 }
-TEST(LockManagerTest, DISABLED_BasicTest) { BasicTest1(); }
+TEST(LockManagerTest, BasicTest) { BasicTest1(); }
 
-TEST(LockManagerTest, DISABLED_BasicTest2) {
+TEST(LockManagerTest, BasicTest2) {
   LockManager lock_mgr{};
   TransactionManager txn_mgr{&lock_mgr};
 
@@ -129,7 +129,7 @@ TEST(LockManagerTest, DISABLED_BasicTest2) {
   }
 }
 
-TEST(LockManagerTest, DISABLED_BasicTest3) {
+TEST(LockManagerTest, BasicTest3) {
   LockManager lock_mgr{};
   TransactionManager txn_mgr{&lock_mgr};
 
@@ -245,7 +245,7 @@ void TwoPLTest() {
 
   delete txn;
 }
-TEST(LockManagerTest, DISABLED_TwoPLTest) { TwoPLTest(); }
+TEST(LockManagerTest, TwoPLTest) { TwoPLTest(); }
 
 void UpgradeTest() {
   LockManager lock_mgr{};
@@ -272,7 +272,7 @@ void UpgradeTest() {
   txn_mgr.Commit(&txn);
   CheckCommitted(&txn);
 }
-TEST(LockManagerTest, DISABLED_UpgradeLockTest) { UpgradeTest(); }
+TEST(LockManagerTest, UpgradeLockTest) { UpgradeTest(); }
 
 void WoundWaitBasicTest() {
   LockManager lock_mgr{};
@@ -324,7 +324,7 @@ void WoundWaitBasicTest() {
   txn_mgr.Commit(&txn_hold);
   CheckCommitted(&txn_hold);
 }
-TEST(LockManagerTest, DISABLED_WoundWaitBasicTest) { WoundWaitBasicTest(); }
+TEST(LockManagerTest, WoundWaitBasicTest) { WoundWaitBasicTest(); }
 
 // --- Real tests ---
 
@@ -744,7 +744,7 @@ void FairnessTest2() {
   mutex.unlock();
 }
 
-TEST(LockManagerTest, DISABLED_WoundWaitTest) {
+TEST(LockManagerTest, WoundWaitTest) {
   for (size_t i = 0; i < NUM_ITERS; i++) {
     WoundWaitBasicTest();
   }
@@ -761,7 +761,7 @@ TEST(LockManagerTest, DISABLED_WoundWaitTest) {
  *    Test 3 also tests if later txn won't be added into the wait queue
  *    if the queue has transactions with smaller tid.
  */
-TEST(LockManagerTest, DISABLED_WoundUpgradeTest) {
+TEST(LockManagerTest, WoundUpgradeTest) {
   for (size_t i = 0; i < NUM_ITERS; i++) {
     WoundUpgradeTest();
   }
@@ -773,7 +773,7 @@ TEST(LockManagerTest, DISABLED_WoundUpgradeTest) {
  * The main point for this test is to ensure no deadlock
  * happen (test won't hang).
  */
-TEST(LockManagerTest, DISABLED_WoundWaitDeadlockTest) {
+TEST(LockManagerTest, WoundWaitDeadlockTest) {
   for (size_t i = 0; i < NUM_ITERS; i++) {
     WoundWaitDeadlockTest();
   }
@@ -787,7 +787,7 @@ TEST(LockManagerTest, DISABLED_WoundWaitDeadlockTest) {
  */
 TEST(LockManagerTest, WoundWaitFairnessTest) {
   for (size_t i = 0; i < NUM_ITERS; i++) {
-    // FairnessTest1();
+    FairnessTest1();
     FairnessTest2();
   }
 }

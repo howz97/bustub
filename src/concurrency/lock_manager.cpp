@@ -91,7 +91,7 @@ auto LockManager::LockShared(Transaction *txn, const RID &rid) -> bool {
 
 auto LockManager::LockExclusive(Transaction *txn, const RID &rid) -> bool {
   txn_id_t txn_id = txn->GetTransactionId();
-  LOG_DEBUG("transaction %d LockExclusive %s", txn_id, rid.ToString().c_str());
+  // LOG_DEBUG("transaction %d LockExclusive %s", txn_id, rid.ToString().c_str());
   if (txn->IsExclusiveLocked(rid)) {
     UNREACHABLE("duplicated lock");
   }
@@ -107,12 +107,19 @@ auto LockManager::LockExclusive(Transaction *txn, const RID &rid) -> bool {
   // wound younger transactions
   for (auto &req : queue->request_queue_) {
     if (req.txn_id_ > txn_id && req.txn_->GetState() == TransactionState::GROWING) {
-      LOG_DEBUG("transaction %d wound %d because conflict on %s", txn_id, req.txn_id_, rid.ToString().c_str());
+      // LOG_DEBUG("transaction %d wound %d because conflict on %s", txn_id, req.txn_id_, rid.ToString().c_str());
       req.txn_->SetState(TransactionState::ABORTED);
       auto blk = blocking_.find(req.txn_id_);
       if (blk != blocking_.end()) {
         lock_table_[blk->second].cv_.notify_all();
       }
+    }
+  }
+  for (auto it = queue->request_queue_.begin(); it != queue->request_queue_.end();) {
+    if (it->txn_->GetState() == TransactionState::ABORTED) {
+      it = queue->request_queue_.erase(it);
+    } else {
+      ++it;
     }
   }
 
@@ -133,14 +140,14 @@ auto LockManager::LockExclusive(Transaction *txn, const RID &rid) -> bool {
   });
   blocking_.erase(txn_id);
   if (txn->GetState() == TransactionState::ABORTED) {
-    LOG_DEBUG("transaction %d start abort", txn_id);
+    // LOG_DEBUG("transaction %d start abort", txn_id);
     queue->request_queue_.remove_if([&](LockRequest r) { return r.txn_id_ == txn_id; });
     queue->cv_.notify_all();
     return false;
   }
   queue->Grant(txn_id);
   txn->GetExclusiveLockSet()->emplace(rid);
-  LOG_DEBUG("transaction %d got exclusivs-lock", txn_id);
+  // LOG_DEBUG("transaction %d got exclusivs-lock", txn_id);
   return true;
 }
 
@@ -239,7 +246,10 @@ auto LockManager::Unlock(Transaction *txn, const RID &rid) -> bool {
       txn->SetState(TransactionState::SHRINKING);
     }
   }
-  queue->request_queue_.erase(it);
+  // maybe already erased by wounder
+  if (it != queue->request_queue_.end()) {
+    queue->request_queue_.erase(it);
+  }
   if (queue->upgrading_ != INVALID_TXN_ID || !queue->IsLocked()) {
     queue->cv_.notify_all();
   }
