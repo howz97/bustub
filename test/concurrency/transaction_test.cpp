@@ -204,7 +204,7 @@ TEST_F(TransactionTest, SimpleInsertRollbackTest) {
 }
 
 // NOLINTNEXTLINE
-TEST_F(TransactionTest, SimpleDeleteRollbackTest) {
+TEST_F(TransactionTest, MyDeleteRollbackTest) {
   auto txn1 = GetTxnManager()->Begin();
   auto exec_ctx1 = std::make_unique<ExecutorContext>(txn1, GetCatalog(), GetBPM(), GetTxnManager(), GetLockManager());
   // Create Values to insert

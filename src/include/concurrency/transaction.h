@@ -79,15 +79,22 @@ class TableWriteRecord {
  */
 class IndexWriteRecord {
  public:
-  IndexWriteRecord(RID rid, table_oid_t table_oid, WType wtype, const Tuple &tuple, const Tuple &old_tuple,
-                   index_oid_t index_oid, Catalog *catalog)
-      : rid_(rid),
-        table_oid_(table_oid),
-        wtype_(wtype),
-        tuple_(tuple),
-        old_tuple_(old_tuple),
-        index_oid_(index_oid),
-        catalog_(catalog) {}
+  IndexWriteRecord(RID rid, table_oid_t table_oid, WType wtype, const Tuple &tuple, index_oid_t index_oid,
+                   Catalog *catalog)
+      : rid_(rid), table_oid_(table_oid), wtype_(wtype), tuple_(tuple), index_oid_(index_oid), catalog_(catalog) {}
+
+  // I am taking the fall2021 course from August 2022 because i can't wait for fall2022 projects releasing.
+  // And the following code belong fall2022, not fall2021.
+
+  // IndexWriteRecord(RID rid, table_oid_t table_oid, WType wtype, const Tuple &tuple, const Tuple &old_tuple,
+  //                  index_oid_t index_oid, Catalog *catalog)
+  //     : rid_(rid),
+  //       table_oid_(table_oid),
+  //       wtype_(wtype),
+  //       tuple_(tuple),
+  //       old_tuple_(old_tuple),
+  //       index_oid_(index_oid),
+  //       catalog_(catalog) {}
 
   /** The rid is the value stored in the index. */
   RID rid_;
