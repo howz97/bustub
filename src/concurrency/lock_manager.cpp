@@ -21,6 +21,7 @@ auto LockManager::LockShared(Transaction *txn, const RID &rid) -> bool {
   // LOG_DEBUG("transaction %d LockShared %s", txn_id, rid.ToString().c_str());
   if (txn->GetIsolationLevel() == IsolationLevel::READ_UNCOMMITTED) {
     // READ_UNCOMMITTED read data without lock
+    txn->SetState(TransactionState::ABORTED);
     throw TransactionAbortException(txn_id, AbortReason::LOCKSHARED_ON_READ_UNCOMMITTED);
   }
   if (txn->IsSharedLocked(rid)) {
@@ -90,7 +91,7 @@ auto LockManager::LockShared(Transaction *txn, const RID &rid) -> bool {
 
 auto LockManager::LockExclusive(Transaction *txn, const RID &rid) -> bool {
   txn_id_t txn_id = txn->GetTransactionId();
-  // LOG_DEBUG("transaction %d LockExclusive %s", txn_id, rid.ToString().c_str());
+  LOG_DEBUG("transaction %d LockExclusive %s", txn_id, rid.ToString().c_str());
   if (txn->IsExclusiveLocked(rid)) {
     UNREACHABLE("duplicated lock");
   }
@@ -106,7 +107,7 @@ auto LockManager::LockExclusive(Transaction *txn, const RID &rid) -> bool {
   // wound younger transactions
   for (auto &req : queue->request_queue_) {
     if (req.txn_id_ > txn_id && req.txn_->GetState() == TransactionState::GROWING) {
-      // LOG_DEBUG("transaction %d wound %d because conflict on %s", txn_id, it->txn_id_, rid.ToString().c_str());
+      LOG_DEBUG("transaction %d wound %d because conflict on %s", txn_id, req.txn_id_, rid.ToString().c_str());
       req.txn_->SetState(TransactionState::ABORTED);
       auto blk = blocking_.find(req.txn_id_);
       if (blk != blocking_.end()) {
@@ -132,14 +133,14 @@ auto LockManager::LockExclusive(Transaction *txn, const RID &rid) -> bool {
   });
   blocking_.erase(txn_id);
   if (txn->GetState() == TransactionState::ABORTED) {
-    // LOG_DEBUG("transaction %d start abort", txn_id);
+    LOG_DEBUG("transaction %d start abort", txn_id);
     queue->request_queue_.remove_if([&](LockRequest r) { return r.txn_id_ == txn_id; });
     queue->cv_.notify_all();
     return false;
   }
   queue->Grant(txn_id);
   txn->GetExclusiveLockSet()->emplace(rid);
-  // LOG_DEBUG("transaction %d got exclusivs-lock", txn_id);
+  LOG_DEBUG("transaction %d got exclusivs-lock", txn_id);
   return true;
 }
 
@@ -160,6 +161,7 @@ auto LockManager::LockUpgrade(Transaction *txn, const RID &rid) -> bool {
   std::unique_lock lk(latch_);
   LockRequestQueue *queue = &lock_table_[rid];
   if (queue->upgrading_ != INVALID_TXN_ID) {
+    txn->SetState(TransactionState::ABORTED);
     throw TransactionAbortException(txn_id, AbortReason::UPGRADE_CONFLICT);
   }
   // wound younger transactions
@@ -167,12 +169,14 @@ auto LockManager::LockUpgrade(Transaction *txn, const RID &rid) -> bool {
     if (req.lock_mode_ != LockMode::SHARED) {
       break;
     }
-    if (req.txn_id_ > txn_id && req.txn_->GetState() == TransactionState::GROWING && req.granted_) {
-      // LOG_DEBUG("transaction %d wound %d because conflict on %s", txn_id, it->txn_id_, rid.ToString().c_str());
-      req.txn_->SetState(TransactionState::ABORTED);
-      auto blk = blocking_.find(req.txn_id_);
-      if (blk != blocking_.end()) {
-        lock_table_[blk->second].cv_.notify_all();
+    if (req.txn_id_ > txn_id) {
+      if (req.txn_->GetState() == TransactionState::GROWING && req.granted_) {
+        // LOG_DEBUG("transaction %d wound %d because conflict on %s", txn_id, req.txn_id_, rid.ToString().c_str());
+        req.txn_->SetState(TransactionState::ABORTED);
+        auto blk = blocking_.find(req.txn_id_);
+        if (blk != blocking_.end()) {
+          lock_table_[blk->second].cv_.notify_all();
+        }
       }
     } else if (req.txn_id_ == txn_id) {
       // consider this situation:
@@ -197,7 +201,7 @@ auto LockManager::LockUpgrade(Transaction *txn, const RID &rid) -> bool {
       if (it->lock_mode_ != LockMode::SHARED) {
         break;
       }
-      if (it->granted_) {
+      if (it->txn_id_ < txn_id && it->granted_) {
         blocking_[txn_id] = rid;
         return false;
       }
