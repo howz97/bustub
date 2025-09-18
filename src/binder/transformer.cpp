@@ -38,7 +38,7 @@ auto Parser::TransformParseTree(duckdb_libpgquery::PGList *tree) const -> vector
   vector<unique_ptr<SQLStatement>> statements;
   for (auto entry = tree->head; entry != nullptr; entry = entry->next) {
     auto stmt = TransformStatement(static_cast<duckdb_libpgquery::PGNode *>(entry->data.ptr_value));
-    statements.push_back(move(stmt));
+    statements.push_back(std::move(stmt));
   }
   return statements;
 }

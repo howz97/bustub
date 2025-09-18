@@ -16,7 +16,7 @@ CreateStatement::CreateStatement(const Parser &parser, duckdb_libpgquery::PGCrea
       case duckdb_libpgquery::T_PGColumnDef: {
         auto cdef = static_cast<duckdb_libpgquery::PGColumnDef *>(c->data.ptr_value);
         auto centry = parser.TransformColumnDefinition(cdef);
-        columns_.push_back(move(centry));
+        columns_.push_back(std::move(centry));
         break;
       }
       default:
