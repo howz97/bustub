@@ -40,6 +40,17 @@ class HashJoinExecutor : public AbstractExecutor {
   auto GetOutputSchema() const -> const Schema & override { return plan_->OutputSchema(); };
 
  private:
+  auto ConcatTuples(const Tuple *left_tuple, const Tuple *right_tuple) -> Tuple {
+    std::vector<Value> values;
+    for (size_t i = 0; i < plan_->GetLeftPlan()->OutputSchema().GetColumnCount(); i++) {
+      values.emplace_back(left_tuple->GetValue(&plan_->GetLeftPlan()->OutputSchema(), i));
+    }
+    for (size_t i = 0; i < plan_->GetRightPlan()->OutputSchema().GetColumnCount(); i++) {
+      values.emplace_back(right_tuple->GetValue(&plan_->GetRightPlan()->OutputSchema(), i));
+    }
+    return {values, &GetOutputSchema()};
+  }
+
   /** The HashJoin plan node to be executed. */
   const HashJoinPlanNode *plan_;
   std::unique_ptr<AbstractExecutor> left_child_;

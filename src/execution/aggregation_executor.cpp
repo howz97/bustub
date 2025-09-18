@@ -26,16 +26,16 @@ AggregationExecutor::AggregationExecutor(ExecutorContext *exec_ctx, const Aggreg
                                          std::unique_ptr<AbstractExecutor> &&child)
     : AbstractExecutor(exec_ctx),
       plan_(plan),
-      child_(std::move(child)),
+      child_executor_(std::move(child)),
       aht_(SimpleAggregationHashTable(plan->GetAggregates(), plan->GetAggregateTypes())),
       aht_iterator_(aht_.Begin()) {}
 
 /** Initialize the aggregation */
 void AggregationExecutor::Init() {
-  child_->Init();
+  child_executor_->Init();
   Tuple tuple;
   RID discard;
-  while (child_->Next(&tuple, &discard)) {
+  while (child_executor_->Next(&tuple, &discard)) {
     aht_.InsertCombine(MakeAggregateKey(&tuple), MakeAggregateValue(&tuple));
   }
   aht_iterator_ = aht_.Begin();
@@ -67,6 +67,6 @@ auto AggregationExecutor::Next(Tuple *tuple, RID *rid) -> bool {
 }
 
 /** Do not use or remove this function; otherwise, you will get zero points. */
-auto AggregationExecutor::GetChildExecutor() const -> const AbstractExecutor * { return child_.get(); }
+auto AggregationExecutor::GetChildExecutor() const -> const AbstractExecutor * { return child_executor_.get(); }
 
 }  // namespace bustub

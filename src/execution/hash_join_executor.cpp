@@ -45,8 +45,11 @@ void HashJoinExecutor::Init() {
   right_child_->Init();
   auto schema = right_child_->GetOutputSchema();
   while (right_child_->Next(&tuple, &rid)) {
-    auto v = plan_->RightJoinKeyExpression()->Evaluate(&tuple, schema);
-    AggregateKey hjk = MakeHJKey(v);
+    std::vector<Value> values;
+    for (auto exp : plan_->RightJoinKeyExpressions()) {
+      values.emplace_back(exp->Evaluate(&tuple, schema));
+    }
+    AggregateKey hjk(std::move(values));
     map_.insert(std::pair(hjk, tuple));
   }
 }
@@ -64,17 +67,15 @@ auto HashJoinExecutor::Next(Tuple *tuple, RID *rid) -> bool {
     if (!left_child_->Next(&left_tuple_, &discard)) {
       return false;
     }
-    auto k = plan_->LeftJoinKeyExpression()->Evaluate(&left_tuple_, left_schema);
-    range_ = map_.equal_range(MakeHJKey(k));
+    std::vector<Value> values;
+    for (auto exp : plan_->LeftJoinKeyExpressions()) {
+      values.emplace_back(exp->Evaluate(&left_tuple_, left_schema));
+    }
+    AggregateKey hjk(std::move(values));
+    range_ = map_.equal_range(hjk);
   }
-  auto right_schema = right_child_->GetOutputSchema();
-  auto out_schema = plan_->OutputSchema();
   Tuple right_tuple = (range_.first++)->second;
-  std::vector<Value> vals;
-  for (const auto &col : out_schema->GetColumns()) {
-    vals.push_back(col.GetExpr()->EvaluateJoin(&left_tuple_, left_schema, &right_tuple, right_schema));
-  }
-  *tuple = Tuple(vals, out_schema);
+  *tuple = ConcatTuples(&left_tuple_, &right_tuple);
   return true;
 }
 

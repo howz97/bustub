@@ -94,6 +94,7 @@ class AggregationPlanNode : public AbstractPlanNode {
 
 /** AggregateKey represents a key in an aggregation operation */
 struct AggregateKey {
+  AggregateKey(std::vector<Value> group_bys) : group_bys_(std::move(group_bys)) {};
   /** The group-by values */
   std::vector<Value> group_bys_;
 
